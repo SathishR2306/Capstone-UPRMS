@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import api from "@/utils/api";
 
 interface MedicalRecord {
     id: number;
@@ -54,10 +55,23 @@ export default function DocumentVault({ records }: Props) {
         return c;
     }, [categorized, records.length]);
 
-    function handleDownload(rec: typeof filtered[0]) {
+    async function handleDownload(rec: typeof filtered[0]) {
         const filename = rec.reportFileURL?.replace("uploads/", "").replace("uploads\\", "") ?? "";
-        window.open(`http://localhost:3001/medical-records/download/${filename}`, "_blank");
-        setDownloadLog(prev => ({ ...prev, [rec.id]: new Date().toLocaleTimeString("en-IN") }));
+        try {
+            const res = await api.get(`/medical-records/download/${filename}`, { responseType: "blob" });
+            const blobUrl = window.URL.createObjectURL(new Blob([res.data], { type: res.headers["content-type"] || "application/octet-stream" }));
+            const link = document.createElement("a");
+            link.href = blobUrl;
+            link.setAttribute("download", filename);
+            document.body.appendChild(link);
+            link.click();
+            link.parentNode?.removeChild(link);
+            setTimeout(() => window.URL.revokeObjectURL(blobUrl), 1000);
+
+            setDownloadLog(prev => ({ ...prev, [rec.id]: new Date().toLocaleTimeString("en-IN") }));
+        } catch (error) {
+            alert("Failed to access the file.");
+        }
     }
 
     return (

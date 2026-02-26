@@ -87,6 +87,25 @@ export default function HospitalTimelineView() {
 
     const selectStyle = { padding: "8px 12px", background: "#ffffff", border: "1px solid #cbd5e1", borderRadius: 6, color: "#334155", fontSize: "0.85rem", cursor: "pointer", outline: "none", fontWeight: 500 };
 
+    const handleDownload = async (fileUrl: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        const filename = fileUrl.replace("uploads/", "").replace("uploads\\", "");
+        try {
+            const res = await api.get(`/medical-records/download/${filename}`, { responseType: "blob" });
+            const blobUrl = window.URL.createObjectURL(new Blob([res.data], { type: res.headers["content-type"] || "application/octet-stream" }));
+            const link = document.createElement("a");
+            link.href = blobUrl;
+            link.setAttribute("download", filename);
+            document.body.appendChild(link);
+            link.click();
+            link.parentNode?.removeChild(link);
+            setTimeout(() => window.URL.revokeObjectURL(blobUrl), 1000);
+        } catch (error) {
+            console.error("Failed to fetch file");
+            alert("Failed to access the file.");
+        }
+    };
+
     if (loadingPatients) return <div style={{ padding: 20, color: "#64748b" }}>Loading Patient Selector...</div>;
 
     return (
@@ -204,14 +223,12 @@ export default function HospitalTimelineView() {
                                                         </div>
                                                         {rec.reportFileURL && (
                                                             <div style={{ gridColumn: "1/-1", marginTop: 8 }}>
-                                                                <a href={`http://localhost:3001/medical-records/download/${rec.reportFileURL.replace("uploads/", "").replace("uploads\\", "")}`}
-                                                                    target="_blank" rel="noreferrer"
+                                                                <button onClick={e => handleDownload(rec.reportFileURL!, e)}
                                                                     className="btn-outline"
-                                                                    style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 16px", fontSize: "0.85rem", textDecoration: "none" }}
-                                                                    onClick={e => e.stopPropagation()}>
+                                                                    style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 16px", fontSize: "0.85rem", border: "1px solid var(--border)", background: "transparent", color: "#e2e8f0", borderRadius: 6, cursor: "pointer" }}>
                                                                     <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
                                                                     Download Attached Report
-                                                                </a>
+                                                                </button>
                                                             </div>
                                                         )}
                                                     </div>

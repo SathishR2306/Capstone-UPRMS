@@ -102,6 +102,55 @@ export default function AIInsights({ records }: Props) {
                 </div>
             </div>
 
+            {/* Predictive Health Risks */}
+            {ai.predictiveRisks && (
+                <div style={cardStyle}>
+                    <h4 style={headerStyle}>
+                        <svg width="20" height="20" fill="none" stroke="#f43f5e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></svg>
+                        <span>Predictive Health Risks</span>
+                    </h4>
+
+                    <div style={{ marginBottom: 20, padding: "12px 16px", background: "rgba(244, 63, 94, 0.1)", border: "1px solid rgba(244, 63, 94, 0.2)", borderRadius: 8, color: "#fda4af", fontSize: "0.9rem", lineHeight: 1.5 }}>
+                        <strong>AI Prediction:</strong> {ai.predictiveRisks.riskContext}
+                    </div>
+
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 20 }}>
+                        {/* Diabetes Risk */}
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem", color: "#e2e8f0", fontWeight: 600 }}>
+                                <span>Diabetes</span>
+                                <span style={{ color: ai.predictiveRisks.diabetes > 50 ? "#f43f5e" : "#fbbf24" }}>{ai.predictiveRisks.diabetes}%</span>
+                            </div>
+                            <div style={{ height: 8, background: "rgba(255,255,255,0.1)", borderRadius: 4, overflow: "hidden" }}>
+                                <div style={{ height: "100%", width: `${ai.predictiveRisks.diabetes}%`, background: ai.predictiveRisks.diabetes > 50 ? "#f43f5e" : "#fbbf24", borderRadius: 4, transition: "width 1s ease-in-out" }} />
+                            </div>
+                        </div>
+
+                        {/* Cardiac Risk */}
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem", color: "#e2e8f0", fontWeight: 600 }}>
+                                <span>Cardiac Issues</span>
+                                <span style={{ color: ai.predictiveRisks.cardiac > 50 ? "#f43f5e" : "#fbbf24" }}>{ai.predictiveRisks.cardiac}%</span>
+                            </div>
+                            <div style={{ height: 8, background: "rgba(255,255,255,0.1)", borderRadius: 4, overflow: "hidden" }}>
+                                <div style={{ height: "100%", width: `${ai.predictiveRisks.cardiac}%`, background: ai.predictiveRisks.cardiac > 50 ? "#f43f5e" : "#fbbf24", borderRadius: 4, transition: "width 1s ease-in-out" }} />
+                            </div>
+                        </div>
+
+                        {/* Kidney Risk */}
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem", color: "#e2e8f0", fontWeight: 600 }}>
+                                <span>Kidney Issues</span>
+                                <span style={{ color: ai.predictiveRisks.kidney > 50 ? "#f43f5e" : "#fbbf24" }}>{ai.predictiveRisks.kidney}%</span>
+                            </div>
+                            <div style={{ height: 8, background: "rgba(255,255,255,0.1)", borderRadius: 4, overflow: "hidden" }}>
+                                <div style={{ height: "100%", width: `${ai.predictiveRisks.kidney}%`, background: ai.predictiveRisks.kidney > 50 ? "#f43f5e" : "#fbbf24", borderRadius: 4, transition: "width 1s ease-in-out" }} />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Chronic Conditions */}
             <div style={cardStyle}>
                 <h4 style={headerStyle}>
@@ -159,6 +208,57 @@ export default function AIInsights({ records }: Props) {
                     ))}
                 </div>
             </div>
+
+            {/* Essential Findings */}
+            {ai.essentialFindings?.length > 0 && (
+                <div style={cardStyle}>
+                    <h4 style={headerStyle}>
+                        <svg width="20" height="20" fill="none" stroke="#34d399" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
+                        <span>Key Health Findings</span>
+                    </h4>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                        {ai.essentialFindings.map((f: string, i: number) => (
+                            <div key={i} style={{ display: "flex", gap: 12, alignItems: "flex-start", padding: "12px 16px", background: "rgba(255,255,255,0.03)", borderRadius: 8, border: "1px solid var(--border)" }}>
+                                <span style={{ color: "#34d399", flexShrink: 0, marginTop: 2 }}>
+                                    <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                                </span>
+                                <span style={{ fontSize: "0.9rem", lineHeight: 1.6, color: "#e2e8f0", fontWeight: 500 }}>{f}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Treatment History Timeline */}
+            {ai.treatmentHistory?.length > 0 && (
+                <div style={cardStyle}>
+                    <h4 style={headerStyle}>
+                        <svg width="20" height="20" fill="none" stroke="#a78bfa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
+                        <span>Treatment & Medication Timeline</span>
+                    </h4>
+                    <div style={{ position: "relative", paddingLeft: 16 }}>
+                        <div style={{ position: "absolute", left: 0, top: 4, bottom: 4, width: 2, background: "rgba(255,255,255,0.1)" }} />
+                        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+                            {ai.treatmentHistory.map((th: any, i: number) => (
+                                <div key={i} style={{ position: "relative" }}>
+                                    <div style={{ position: "absolute", left: -21, top: 2, width: 12, height: 12, borderRadius: "50%", background: "#a78bfa", border: "2px solid #1e1e2d" }} />
+                                    <div style={{ fontSize: "0.82rem", color: "#a78bfa", fontWeight: 700, marginBottom: 4, letterSpacing: "0.05em", textTransform: "uppercase" }}>{th.date}</div>
+                                    <div style={{ fontSize: "0.95rem", color: "#fff", fontWeight: 600, marginBottom: 8 }}>{th.treatment}</div>
+                                    {th.medicines?.length > 0 && (
+                                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                                            {th.medicines.map((m: string, mi: number) => (
+                                                <span key={mi} style={{ padding: "4px 10px", borderRadius: 4, background: "rgba(59,130,246,0.1)", border: "1px solid rgba(59,130,246,0.2)", color: "#60a5fa", fontSize: "0.75rem", fontWeight: 600 }}>
+                                                    💊 {m}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Checkup Reminder */}
             <div style={{ background: "rgba(34, 197, 94, 0.1)", border: "1px solid rgba(34, 197, 94, 0.2)", borderRadius: 12, padding: "20px 24px", display: "flex", gap: 16, alignItems: "center" }}>

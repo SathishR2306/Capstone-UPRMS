@@ -27,4 +27,13 @@ export class Doctor {
 
     @Column()
     hospitalId: number;
+
+    @Column({ nullable: true })
+    fullName: string;
+
+    @Column({ nullable: true })
+    specialization: string;
+
+    @Column({ nullable: true })
+    licenseNumber: string;
 }

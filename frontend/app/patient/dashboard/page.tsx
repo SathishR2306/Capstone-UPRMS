@@ -10,6 +10,7 @@ import AIInsights from "./components/AIInsights";
 import Analytics from "./components/Analytics";
 import DocumentVault from "./components/DocumentVault";
 import AccessManager from "./components/AccessManager";
+import ChatBotEmbed from "./components/ChatBotEmbed";
 
 type Tab = "timeline" | "ai" | "analytics" | "vault" | "access" | "privacy";
 
@@ -217,6 +218,9 @@ export default function PatientDashboard() {
 
                 </div>
             </div>
+
+            {/* AI Chat Bot */}
+            <ChatBotEmbed />
         </div>
     );
 }

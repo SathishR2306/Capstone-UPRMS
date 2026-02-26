@@ -18,7 +18,15 @@ export async function POST(req: Request) {
                 riskLevel: "low",
                 topMeds: [],
                 healthScore: 100,
-                suggestions: ["Upload medical records to generate a comprehensive AI summary."]
+                suggestions: ["Upload medical records to generate a comprehensive AI summary."],
+                treatmentHistory: [],
+                essentialFindings: [],
+                predictiveRisks: {
+                    diabetes: 0,
+                    cardiac: 0,
+                    kidney: 0,
+                    riskContext: "Insufficient data to predict future health risks."
+                }
             });
         }
 
@@ -32,7 +40,21 @@ Use exactly this schema:
   "riskLevel": "high" | "medium" | "low", // e.g. "medium"
   "topMeds": [ [string, number] ], // array of tuples of medication names & frequencies. max 5. e.g. [["Aspirin", 2], ["Metformin", 1]]
   "healthScore": number, // vitality score out of 100. Lower it depending on severity of chronic conditions and risks.
-  "suggestions": string[] // 3-4 actionable clinical notes or health improvement suggestions
+  "suggestions": string[], // 3-4 actionable clinical notes or health improvement suggestions
+  "treatmentHistory": [ // Summarized timeline of treatments and medicines taken derived from the records
+      {
+          "date": string, // format like "YYYY-MM" or "Month YYYY"
+          "treatment": string, // The primary treatment/procedure applied
+          "medicines": string[] // The exact medicines prescribed during this visit
+      }
+  ],
+  "essentialFindings": string[], // 3-4 bullet points regarding critical events, notable surgeries, or lifestyle warnings
+  "predictiveRisks": { // Predictive analytics for future health risks based on current data
+      "diabetes": number, // probability percentage 0-100
+      "cardiac": number, // probability percentage 0-100
+      "kidney": number, // probability percentage 0-100
+      "riskContext": string // A clear, example-style summary of the topmost risk, e.g., "Based on 5-year history, 72% risk of hypertension progression."
+  }
 }
 
 Medical Records:
