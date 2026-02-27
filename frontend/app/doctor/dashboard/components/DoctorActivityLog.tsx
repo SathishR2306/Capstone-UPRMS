@@ -10,6 +10,7 @@ interface LogEntry {
     action: string;
     detail: string | null;
     timestamp: string;
+    isOutsideWorkHours: boolean;
     patient?: { fullName: string };
 }
 
@@ -49,7 +50,7 @@ export default function DoctorActivityLog() {
             ) : (
                 <div style={{ overflowX: "auto" }}>
                     {/* Header */}
-                    <div style={{ display: "grid", gridTemplateColumns: "160px 1fr 1fr 180px", gap: 12, padding: "10px 16px", fontSize: "0.72rem", fontWeight: 700, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid var(--border)" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "180px 1fr 1fr 180px", gap: 12, padding: "10px 16px", fontSize: "0.72rem", fontWeight: 700, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid var(--border)" }}>
                         <div>Timestamp</div>
                         <div>Patient</div>
                         <div>Action</div>
@@ -57,11 +58,14 @@ export default function DoctorActivityLog() {
                     </div>
                     {logs.map(log => {
                         const style = ACTION_STYLE[log.action] || { icon: "📌", color: "#94a3b8", bg: "rgba(148,163,184,0.1)" };
+                        const rowBg = log.isOutsideWorkHours ? "rgba(245,158,11,0.07)" : "transparent";
+                        const rowBorder = log.isOutsideWorkHours ? "1px solid rgba(245,158,11,0.2)" : "none";
                         return (
-                            <div key={log.id} style={{ display: "grid", gridTemplateColumns: "160px 1fr 1fr 180px", gap: 12, padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.04)", alignItems: "center", transition: "background 0.15s" }}
-                                onMouseOver={e => (e.currentTarget.style.background = "rgba(255,255,255,0.03)")}
-                                onMouseOut={e => (e.currentTarget.style.background = "transparent")}>
-                                <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
+                            <div key={log.id} style={{ display: "grid", gridTemplateColumns: "180px 1fr 1fr 180px", gap: 12, padding: "12px 16px", borderBottom: "1px solid rgba(255,255,255,0.04)", borderLeft: rowBorder, alignItems: "center", background: rowBg, transition: "background 0.15s" }}
+                                onMouseOver={e => !log.isOutsideWorkHours && (e.currentTarget.style.background = "rgba(255,255,255,0.03)")}
+                                onMouseOut={e => (e.currentTarget.style.background = rowBg)}>
+                                <div style={{ fontSize: "0.8rem", color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 6 }}>
+                                    {log.isOutsideWorkHours && <span title="Access outside working hours" style={{ fontSize: "0.85rem" }}>⚠️</span>}
                                     {new Date(log.timestamp).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
                                 </div>
                                 <div style={{ fontSize: "0.88rem", color: "#e2e8f0", fontWeight: 500 }}>

@@ -8,8 +8,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 
-import { Doctor } from './entities/doctor.entity';
+import { Doctor, DoctorStatus } from './entities/doctor.entity';
 import { DoctorActivityLog } from './entities/doctor-activity-log.entity';
+import { DoctorPatientAssignment } from './entities/doctor-patient-assignment.entity';
 import { User } from '../user/entities/user.entity';
 import { Patient } from '../patient/entities/patient.entity';
 import { Hospital } from '../hospital/entities/hospital.entity';
@@ -23,6 +24,8 @@ export class DoctorService {
         private readonly doctorRepo: Repository<Doctor>,
         @InjectRepository(DoctorActivityLog)
         private readonly activityRepo: Repository<DoctorActivityLog>,
+        @InjectRepository(DoctorPatientAssignment)
+        private readonly assignmentRepo: Repository<DoctorPatientAssignment>,
         @InjectRepository(User)
         private readonly userRepo: Repository<User>,
         @InjectRepository(Patient)
@@ -49,6 +52,12 @@ export class DoctorService {
             fullName: doctor.fullName,
             specialization: doctor.specialization,
             licenseNumber: doctor.licenseNumber,
+            licenseExpiry: doctor.licenseExpiry,
+            department: doctor.department,
+            role: doctor.role,
+            status: doctor.status,
+            workingHoursStart: doctor.workingHoursStart,
+            workingHoursEnd: doctor.workingHoursEnd,
             phone: doctor.user?.phone,
             maskedAadhaar: doctor.user?.aadhaar_number
                 ? 'XXXX-XXXX-' + doctor.user.aadhaar_number.slice(-4)
@@ -92,12 +101,94 @@ export class DoctorService {
         return { message: 'Password changed successfully' };
     }
 
+    // ── License Status ────────────────────────────────────────────────────────
+    async getLicenseStatus(userId: number) {
+        const doctor = await this.doctorRepo.findOne({ where: { userId } });
+        if (!doctor) throw new NotFoundException('Doctor profile not found');
+
+        if (!doctor.licenseExpiry) {
+            return { status: 'NO_EXPIRY_SET', daysRemaining: null, licenseNumber: doctor.licenseNumber };
+        }
+
+        const today = new Date();
+        const expiry = new Date(doctor.licenseExpiry);
+        const diffMs = expiry.getTime() - today.getTime();
+        const daysRemaining = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+        let status: string;
+        if (daysRemaining < 0) status = 'EXPIRED';
+        else if (daysRemaining <= 30) status = 'EXPIRING_SOON';
+        else status = 'VALID';
+
+        return {
+            status,
+            daysRemaining,
+            licenseNumber: doctor.licenseNumber,
+            licenseExpiry: doctor.licenseExpiry,
+        };
+    }
+
+    // ── Schedule ──────────────────────────────────────────────────────────────
+    async getSchedule(userId: number) {
+        const doctor = await this.doctorRepo.findOne({ where: { userId } });
+        if (!doctor) throw new NotFoundException('Doctor profile not found');
+
+        return {
+            workingHoursStart: doctor.workingHoursStart,
+            workingHoursEnd: doctor.workingHoursEnd,
+            leaveDays: doctor.leaveDays || [],
+        };
+    }
+
+    async updateSchedule(
+        userId: number,
+        dto: { workingHoursStart?: string; workingHoursEnd?: string; leaveDays?: string[] },
+    ) {
+        const doctor = await this.doctorRepo.findOne({ where: { userId } });
+        if (!doctor) throw new NotFoundException('Doctor profile not found');
+
+        if (dto.workingHoursStart !== undefined) doctor.workingHoursStart = dto.workingHoursStart;
+        if (dto.workingHoursEnd !== undefined) doctor.workingHoursEnd = dto.workingHoursEnd;
+        if (dto.leaveDays !== undefined) doctor.leaveDays = dto.leaveDays;
+
+        await this.doctorRepo.save(doctor);
+        return { message: 'Schedule updated successfully' };
+    }
+
+    // ── Assigned Patients ─────────────────────────────────────────────────────
+    async getAssignedPatients(userId: number) {
+        const doctor = await this.doctorRepo.findOne({ where: { userId } });
+        if (!doctor) throw new NotFoundException('Doctor profile not found');
+
+        const assignments = await this.assignmentRepo.find({
+            where: { doctorId: doctor.id },
+            relations: ['patient', 'patient.user'],
+            order: { assignedAt: 'DESC' },
+        });
+
+        return assignments.map(a => ({
+            assignmentId: a.id,
+            patientId: a.patientId,
+            fullName: a.patient?.fullName,
+            gender: a.patient?.gender,
+            dateOfBirth: a.patient?.dateOfBirth,
+            phone: a.patient?.user?.phone,
+            isEmergency: a.isEmergency,
+            assignedAt: a.assignedAt,
+        }));
+    }
+
     // ── Patient Search ────────────────────────────────────────────────────────
     async searchPatient(query: string, doctorUserId: number) {
         if (!query || query.trim().length < 2) return [];
 
         const doctor = await this.doctorRepo.findOne({ where: { userId: doctorUserId } });
         if (!doctor) throw new NotFoundException('Doctor profile not found');
+
+        // Check if suspended
+        if (doctor.status === DoctorStatus.SUSPENDED) {
+            throw new ForbiddenException('Your account has been suspended. Please contact your hospital admin.');
+        }
 
         const patients = await this.patientRepo
             .createQueryBuilder('patient')
@@ -134,9 +225,13 @@ export class DoctorService {
     }
 
     // ── Patient Records (consent-gated) ───────────────────────────────────────
-    async getPatientRecords(patientId: number, doctorUserId: number) {
+    async getPatientRecords(patientId: number, doctorUserId: number, ip?: string) {
         const doctor = await this.doctorRepo.findOne({ where: { userId: doctorUserId } });
         if (!doctor) throw new NotFoundException('Doctor profile not found');
+
+        if (doctor.status === DoctorStatus.SUSPENDED) {
+            throw new ForbiddenException('Your account has been suspended.');
+        }
 
         const permission = await this.permRepo.findOne({
             where: { patientId, hospitalId: doctor.hospitalId, accessGranted: true },
@@ -144,8 +239,9 @@ export class DoctorService {
         if (!permission)
             throw new ForbiddenException('Patient has not granted access to your hospital');
 
-        // Log activity
-        await this.logActivity(doctor.id, patientId, 'VIEW_RECORDS');
+        // Detect out-of-hours
+        const outsideHours = this.isOutsideWorkHours(doctor.workingHoursStart, doctor.workingHoursEnd);
+        await this.logActivity(doctor.id, patientId, 'VIEW_RECORDS', undefined, outsideHours, ip);
 
         return this.recordRepo.find({
             where: { patientId },
@@ -167,16 +263,42 @@ export class DoctorService {
         });
     }
 
-    async logActivity(doctorId: number, patientId: number, action: string, detail?: string) {
-        const log = this.activityRepo.create({ doctorId, patientId, action, detail });
+    async logActivity(
+        doctorId: number,
+        patientId: number | null,
+        action: string,
+        detail?: string,
+        isOutsideWorkHours?: boolean,
+        ipAddress?: string,
+    ) {
+        const log = this.activityRepo.create({
+            doctorId,
+            patientId: patientId ?? undefined,
+            action,
+            detail,
+            isOutsideWorkHours: isOutsideWorkHours ?? false,
+            ipAddress,
+        });
         await this.activityRepo.save(log);
     }
 
-    // ── Log download from controller ─────────────────────────────────────────
     async logDownload(doctorUserId: number, patientId: number, fileName: string) {
         const doctor = await this.doctorRepo.findOne({ where: { userId: doctorUserId } });
         if (!doctor) return;
-        await this.logActivity(doctor.id, patientId, 'DOWNLOAD_REPORT', fileName);
+        const outsideHours = this.isOutsideWorkHours(doctor.workingHoursStart, doctor.workingHoursEnd);
+        await this.logActivity(doctor.id, patientId, 'DOWNLOAD_REPORT', fileName, outsideHours);
         return { message: 'Download logged' };
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+    private isOutsideWorkHours(start?: string, end?: string): boolean {
+        if (!start || !end) return false;
+        const now = new Date();
+        const [sh, sm] = start.split(':').map(Number);
+        const [eh, em] = end.split(':').map(Number);
+        const nowMins = now.getHours() * 60 + now.getMinutes();
+        const startMins = sh * 60 + sm;
+        const endMins = eh * 60 + em;
+        return nowMins < startMins || nowMins > endMins;
     }
 }

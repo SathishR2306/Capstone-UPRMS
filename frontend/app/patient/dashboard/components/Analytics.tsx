@@ -1,6 +1,13 @@
 "use client";
 
 import { useMemo } from "react";
+import {
+    ResponsiveContainer,
+    AreaChart, Area,
+    BarChart, Bar,
+    PieChart, Pie, Cell, Tooltip as PieTip, Legend,
+    XAxis, YAxis, CartesianGrid, Tooltip,
+} from "recharts";
 
 interface MedicalRecord {
     id: number;
@@ -11,8 +18,27 @@ interface MedicalRecord {
 }
 interface Props { records: MedicalRecord[] }
 
+const TEAL = "#1ABC9C";
+const NAVY = "#1E2A5F";
+const AMBER = "#F39C12";
+const DANGER = "#E74C3C";
+const VIOLET = "#8b5cf6";
+const PIE_COLORS = [TEAL, NAVY, AMBER, DANGER, VIOLET, "#3b82f6"];
+
+const CustomTooltip = ({ active, payload, label }: any) => {
+    if (!active || !payload?.length) return null;
+    return (
+        <div style={{ background: "#fff", border: "1px solid #E8EDF5", borderRadius: 10, padding: "10px 14px", boxShadow: "0 4px 16px rgba(0,0,0,0.08)", fontSize: "0.82rem" }}>
+            <div style={{ fontWeight: 700, color: "#2C3E50", marginBottom: 4 }}>{label}</div>
+            {payload.map((p: any) => (
+                <div key={p.name} style={{ color: p.color ?? TEAL, fontWeight: 600 }}>{p.value} {p.name}</div>
+            ))}
+        </div>
+    );
+};
+
 export default function Analytics({ records }: Props) {
-    const { visitsByYear, diagFreq, topHospitals } = useMemo(() => {
+    const { diagFreq, topHospitals, visitTrend } = useMemo(() => {
         const visitsByYear: Record<string, number> = {};
         const diagFreq: Record<string, number> = {};
         const hosp: Record<string, number> = {};
@@ -20,104 +46,175 @@ export default function Analytics({ records }: Props) {
         records.forEach(r => {
             const y = new Date(r.visitDate).getFullYear().toString();
             visitsByYear[y] = (visitsByYear[y] || 0) + 1;
-
             const diag = r.diagnosis.toLowerCase().split(/[,./]/)[0].trim();
             diagFreq[diag] = (diagFreq[diag] || 0) + 1;
-
             const hName = r.hospital?.hospitalName ?? "Unknown";
             hosp[hName] = (hosp[hName] || 0) + 1;
         });
 
+        const years = Object.keys(visitsByYear).sort();
+        const visitTrend = years.map(y => ({ year: y, visits: visitsByYear[y] }));
+        const topDiag = Object.entries(diagFreq).sort(([, a], [, b]) => b - a).slice(0, 6);
         const topHospitals = Object.entries(hosp).sort(([, a], [, b]) => b - a).slice(0, 5);
-        return { visitsByYear, diagFreq: Object.entries(diagFreq).sort(([, a], [, b]) => b - a).slice(0, 6), topHospitals };
+        return { diagFreq: topDiag, topHospitals, visitTrend };
     }, [records]);
 
-    const years = Object.keys(visitsByYear).sort();
-    const maxVisit = Math.max(1, ...Object.values(visitsByYear));
-    const maxDiag = Math.max(1, ...Object.values(diagFreq.map ? diagFreq.map(([, v]) => v) : [1]));
-    const maxHosp = Math.max(1, ...topHospitals.map(([, v]) => v));
-
-    const cardStyle = { background: "rgba(255,255,255,0.03)", border: "1px solid var(--border)", borderRadius: 16, padding: "24px", backdropFilter: "blur(12px)" };
-    const headerStyle = { fontWeight: 700, fontSize: "1rem", color: "#fff", marginBottom: 24, letterSpacing: "0.02em" };
+    const diagData = diagFreq.map(([name, count]) => ({ name, count }));
+    const hospPieData = topHospitals.map(([name, value]) => ({ name, value }));
+    const maxDiag = Math.max(1, ...diagData.map(d => d.count));
 
     if (records.length === 0) return (
-        <div className="glass" style={{ textAlign: "center", color: "var(--text-secondary)", padding: "64px", borderRadius: 16 }}>
-            <svg width="48" height="48" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: "0 auto 16px", color: "#475569" }}><line x1="12" y1="20" x2="12" y2="10" /><line x1="18" y1="20" x2="18" y2="4" /><line x1="6" y1="20" x2="6" y2="16" /></svg>
-            <p style={{ margin: 0, fontWeight: 500, fontSize: "1.05rem" }}>No records yet. Analytics will appear once records are uploaded.</p>
+        <div className="sh-card" style={{ padding: "64px 32px", textAlign: "center" }}>
+            <div style={{ width: 56, height: 56, borderRadius: "50%", background: "rgba(26,188,156,0.1)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
+                <svg width="28" height="28" fill="none" stroke={TEAL} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="20" x2="12" y2="10" /><line x1="18" y1="20" x2="18" y2="4" /><line x1="6" y1="20" x2="6" y2="16" /></svg>
+            </div>
+            <div style={{ fontWeight: 700, color: "#2C3E50", fontSize: "1rem", marginBottom: 8 }}>No Analytics Data Yet</div>
+            <div style={{ color: "#8A9BAC", fontSize: "0.88rem" }}>Analytics will populate once medical records are uploaded.</div>
         </div>
     );
 
     return (
-        <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
-            {/* ── Summary Stats ────────────────────────────────────── */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 24 }}>
-                {[
-                    { label: "Total Records", value: records.length, color: "#3b82f6" },
-                    { label: "Active Years", value: years.length, color: "#10b981" },
-                    { label: "Hospitals Visited", value: topHospitals.length, color: "#8b5cf6" },
-                ].map(s => (
-                    <div key={s.label} className="glass" style={{ padding: "24px", textAlign: "center", borderRadius: 16 }}>
-                        <div style={{ fontWeight: 800, fontSize: "2.5rem", color: "#fff", lineHeight: 1, marginBottom: 12, textShadow: `0 0 16px ${s.color}40` }}>{s.value}</div>
-                        <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em" }}>{s.label}</div>
-                    </div>
-                ))}
-            </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 
-            {/* ── Visits Per Year ─────────────────────────────────── */}
-            <div className="glass-strong" style={cardStyle}>
-                <h4 style={headerStyle}>Hospital Visits Per Year</h4>
-                <div style={{ display: "flex", alignItems: "flex-end", gap: 24, height: 180, paddingBottom: 8, borderBottom: "1px solid var(--border)", paddingTop: 16 }}>
-                    {years.map(year => {
-                        const count = visitsByYear[year];
-                        const pct = (count / maxVisit) * 100;
-                        return (
-                            <div key={year} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, flex: 1, group: "true" }}>
-                                <span style={{ fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: 700, transition: "color 0.2s" }}>{count}</span>
-                                <div style={{ width: "100%", maxWidth: 64, height: `${pct}%`, minHeight: 12, background: "linear-gradient(180deg, #3b82f6 0%, rgba(59, 130, 246, 0.2) 100%)", borderRadius: "6px 6px 0 0", position: "relative", transition: "all 0.3s ease", cursor: "pointer" }}
-                                    onMouseOver={e => e.currentTarget.style.background = "linear-gradient(180deg, #60a5fa 0%, rgba(96, 165, 250, 0.3) 100%)"}
-                                    onMouseOut={e => e.currentTarget.style.background = "linear-gradient(180deg, #3b82f6 0%, rgba(59, 130, 246, 0.2) 100%)"}
-                                />
-                                <span style={{ fontSize: "0.85rem", color: "#94a3b8", fontWeight: 600, marginTop: 4 }}>{year}</span>
-                            </div>
-                        );
-                    })}
+            {/* Area Chart — Visits Over Time */}
+            <div className="sh-card">
+                <div className="sh-card-header">
+                    <div>
+                        <div className="sh-card-title">Hospital Visits Over Time</div>
+                        <div style={{ fontSize: "0.78rem", color: "#8A9BAC", marginTop: 2 }}>Annual visit trend across your records</div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.78rem", fontWeight: 600, color: TEAL }}>
+                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: TEAL, display: "inline-block" }} />
+                        Visits
+                    </div>
+                </div>
+                <div className="sh-card-body">
+                    <ResponsiveContainer width="100%" height={220}>
+                        <AreaChart data={visitTrend} margin={{ top: 4, right: 12, left: -20, bottom: 0 }}>
+                            <defs>
+                                <linearGradient id="tealGrad" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor={TEAL} stopOpacity={0.25} />
+                                    <stop offset="95%" stopColor={TEAL} stopOpacity={0} />
+                                </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#E8EDF5" vertical={false} />
+                            <XAxis dataKey="year" tick={{ fill: "#8A9BAC", fontSize: 12 }} axisLine={false} tickLine={false} />
+                            <YAxis tick={{ fill: "#8A9BAC", fontSize: 12 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                            <Tooltip content={<CustomTooltip />} />
+                            <Area type="monotone" dataKey="visits" name="visits" stroke={TEAL} strokeWidth={2.5} fill="url(#tealGrad)" dot={{ fill: TEAL, r: 4, strokeWidth: 0 }} activeDot={{ r: 6 }} />
+                        </AreaChart>
+                    </ResponsiveContainer>
                 </div>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 32 }}>
-                {/* ── Diagnosis Frequency ─────────────────────────────── */}
-                <div className="glass-strong" style={cardStyle}>
-                    <h4 style={headerStyle}>Diagnosis Frequency</h4>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-                        {(diagFreq as [string, number][]).map(([diag, count]) => (
-                            <div key={diag}>
-                                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.9rem", marginBottom: 8, fontWeight: 600, color: "#e2e8f0" }}>
-                                    <span style={{ textTransform: "capitalize" }}>{diag}</span>
-                                    <span style={{ color: "#94a3b8" }}>{count}×</span>
-                                </div>
-                                <div style={{ height: 10, background: "rgba(255,255,255,0.05)", borderRadius: 5, overflow: "hidden" }}>
-                                    <div style={{ height: "100%", width: `${(count / maxDiag) * 100}%`, background: "linear-gradient(90deg, #0ea5e9 0%, #38bdf8 100%)", borderRadius: 5, transition: "width 1s ease-out" }} />
-                                </div>
-                            </div>
-                        ))}
+            {/* Bar + Donut row */}
+            <div className="charts-grid">
+                {/* Bar Chart */}
+                <div className="sh-card">
+                    <div className="sh-card-header">
+                        <div>
+                            <div className="sh-card-title">Top Diagnoses</div>
+                            <div style={{ fontSize: "0.78rem", color: "#8A9BAC", marginTop: 2 }}>Most frequent conditions</div>
+                        </div>
+                    </div>
+                    <div className="sh-card-body">
+                        <ResponsiveContainer width="100%" height={220}>
+                            <BarChart data={diagData} margin={{ top: 4, right: 12, left: -20, bottom: 0 }} barSize={28}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#E8EDF5" vertical={false} />
+                                <XAxis dataKey="name" tick={{ fill: "#8A9BAC", fontSize: 11 }} axisLine={false} tickLine={false} interval={0} angle={-15} textAnchor="end" height={40} />
+                                <YAxis tick={{ fill: "#8A9BAC", fontSize: 12 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                                <Tooltip content={<CustomTooltip />} />
+                                <Bar dataKey="count" name="cases" radius={[6, 6, 0, 0]}>
+                                    {diagData.map((_, i) => <Cell key={i} fill={i % 2 === 0 ? NAVY : TEAL} />)}
+                                </Bar>
+                            </BarChart>
+                        </ResponsiveContainer>
                     </div>
                 </div>
 
-                {/* ── Hospital Visits ─────────────────────────────────── */}
-                <div className="glass-strong" style={cardStyle}>
-                    <h4 style={headerStyle}>Records by Hospital</h4>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-                        {topHospitals.map(([name, count]) => (
-                            <div key={name}>
-                                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.9rem", marginBottom: 8, fontWeight: 600, color: "#e2e8f0" }}>
-                                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "80%" }}>{name}</span>
-                                    <span style={{ color: "#94a3b8", flexShrink: 0 }}>{count}</span>
+                {/* Donut Chart */}
+                <div className="sh-card">
+                    <div className="sh-card-header">
+                        <div>
+                            <div className="sh-card-title">Records by Hospital</div>
+                            <div style={{ fontSize: "0.78rem", color: "#8A9BAC", marginTop: 2 }}>Distribution across providers</div>
+                        </div>
+                    </div>
+                    <div className="sh-card-body">
+                        <ResponsiveContainer width="100%" height={220}>
+                            <PieChart>
+                                <Pie data={hospPieData} cx="50%" cy="50%" innerRadius={55} outerRadius={88} paddingAngle={3} dataKey="value">
+                                    {hospPieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                                </Pie>
+                                <PieTip formatter={(v: any, n: any) => [`${v} records`, n]} contentStyle={{ borderRadius: 10, fontSize: "0.82rem", border: "1px solid #E8EDF5" }} />
+                                <Legend iconType="circle" iconSize={8} formatter={(v) => <span style={{ fontSize: "0.78rem", color: "#5A6A7A" }}>{v}</span>} />
+                            </PieChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+            </div>
+
+            {/* Progress Bars + Table */}
+            <div className="charts-grid-3">
+                {/* Progress bars */}
+                <div className="sh-card">
+                    <div className="sh-card-header">
+                        <div className="sh-card-title">Diagnosis Frequency</div>
+                    </div>
+                    <div className="sh-card-body" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                        {diagData.map(({ name, count }, i) => {
+                            const pct = Math.round((count / maxDiag) * 100);
+                            const color = PIE_COLORS[i % PIE_COLORS.length];
+                            return (
+                                <div key={name}>
+                                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                                        <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "#2C3E50", textTransform: "capitalize" }}>{name}</span>
+                                        <span style={{ fontSize: "0.82rem", fontWeight: 700, color }}>
+                                            {count}× <span style={{ color: "#8A9BAC", fontWeight: 500 }}>({pct}%)</span>
+                                        </span>
+                                    </div>
+                                    <div style={{ height: 8, background: "#F0F4F8", borderRadius: 4, overflow: "hidden" }}>
+                                        <div style={{ height: "100%", width: `${pct}%`, background: color, borderRadius: 4, transition: "width 1s ease" }} />
+                                    </div>
                                 </div>
-                                <div style={{ height: 10, background: "rgba(255,255,255,0.05)", borderRadius: 5, overflow: "hidden" }}>
-                                    <div style={{ height: "100%", width: `${(count / maxHosp) * 100}%`, background: "linear-gradient(90deg, #8b5cf6 0%, #a78bfa 100%)", borderRadius: 5, transition: "width 1s ease-out" }} />
-                                </div>
-                            </div>
-                        ))}
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {/* Data Table */}
+                <div className="sh-card" style={{ overflow: "hidden" }}>
+                    <div className="sh-card-header">
+                        <div className="sh-card-title">Recent Records</div>
+                        <span className="badge badge-teal">{records.length} total</span>
+                    </div>
+                    <div style={{ overflowX: "auto" }}>
+                        <table className="sh-table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Diagnosis</th>
+                                    <th>Hospital</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {[...records].reverse().slice(0, 6).map(r => (
+                                    <tr key={r.id}>
+                                        <td style={{ whiteSpace: "nowrap", color: "#5A6A7A", fontSize: "0.82rem" }}>
+                                            {new Date(r.visitDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                                        </td>
+                                        <td>
+                                            <span className="badge badge-navy" style={{ textTransform: "capitalize", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "inline-block" }}>
+                                                {r.diagnosis.split(/[,./]/)[0].trim()}
+                                            </span>
+                                        </td>
+                                        <td style={{ color: "#5A6A7A", fontSize: "0.82rem", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                            {r.hospital?.hospitalName ?? "—"}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>

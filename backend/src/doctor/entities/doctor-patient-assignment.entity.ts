@@ -5,12 +5,14 @@ import {
     CreateDateColumn,
     ManyToOne,
     JoinColumn,
+    Unique,
 } from 'typeorm';
 import { Doctor } from './doctor.entity';
 import { Patient } from '../../patient/entities/patient.entity';
 
-@Entity('doctor_activity_logs')
-export class DoctorActivityLog {
+@Entity('doctor_patient_assignments')
+@Unique(['doctorId', 'patientId'])
+export class DoctorPatientAssignment {
     @PrimaryGeneratedColumn()
     id: number;
 
@@ -21,25 +23,19 @@ export class DoctorActivityLog {
     @Column()
     doctorId: number;
 
-    @ManyToOne(() => Patient, { nullable: true })
+    @ManyToOne(() => Patient)
     @JoinColumn({ name: 'patientId' })
     patient: Patient;
 
-    @Column({ nullable: true })
+    @Column()
     patientId: number;
 
-    @Column()
-    action: string; // 'VIEW_RECORDS' | 'DOWNLOAD_REPORT' | 'VIEW_AI_SUMMARY' | 'LOGIN' | etc.
-
-    @Column({ nullable: true })
-    detail: string;
-
     @Column({ default: false })
-    isOutsideWorkHours: boolean;
+    isEmergency: boolean;
 
     @Column({ nullable: true })
-    ipAddress: string;
+    assignedBy: string; // hospital name or admin user
 
     @CreateDateColumn()
-    timestamp: Date;
+    assignedAt: Date;
 }

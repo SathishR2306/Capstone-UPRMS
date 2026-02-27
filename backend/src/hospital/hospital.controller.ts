@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Body, Request, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Request, UseGuards } from '@nestjs/common';
 import { HospitalService } from './hospital.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -33,5 +33,12 @@ export class HospitalController {
     @Roles('HOSPITAL')
     getDashboardStats(@Request() req) {
         return this.hospitalService.getDashboardStats(req.user.userId);
+    }
+
+    @Post('doctors')
+    @UseGuards(RolesGuard)
+    @Roles('HOSPITAL')
+    registerDoctor(@Request() req, @Body() dto: any) {
+        return this.hospitalService.registerDoctor(req.user.userId, dto);
     }
 }

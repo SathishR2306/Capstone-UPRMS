@@ -10,8 +10,9 @@ import UploadRecordForm from "./components/UploadRecordForm";
 import HospitalTimelineView from "./components/HospitalTimelineView";
 import AIPatientSummary from "./components/AIPatientSummary";
 import AuditLogs from "./components/AuditLogs";
+import DoctorManagement from "./components/DoctorManagement";
 
-type Tab = "overview" | "search" | "upload" | "timeline" | "ai" | "audit";
+type Tab = "overview" | "search" | "upload" | "timeline" | "ai" | "audit" | "doctors";
 
 export default function HospitalDashboard() {
     const router = useRouter();
@@ -63,6 +64,7 @@ export default function HospitalDashboard() {
         { id: "timeline", label: "Patient Timeline", icon: "Clock" },
         { id: "ai", label: "AI Health Assistant", icon: "Bot" },
         { id: "audit", label: "Audit Logs", icon: "Shield" },
+        { id: "doctors", label: "Doctor Management", icon: "UserCog" },
     ];
 
     const IconMap: Record<string, any> = {
@@ -71,13 +73,14 @@ export default function HospitalDashboard() {
         Upload: <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>,
         Clock: <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>,
         Bot: <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"></rect><circle cx="12" cy="5" r="2"></circle><path d="M12 7v4"></path><line x1="8" y1="16" x2="8" y2="16"></line><line x1="16" y1="16" x2="16" y2="16"></line></svg>,
-        Shield: <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+        Shield: <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>,
+        UserCog: <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="7" r="4"></circle><path d="M3 21v-2a4 4 0 0 1 4-4h4"></path><circle cx="19" cy="19" r="2"></circle><path d="M19 15v2m0 4v2m-3-5.5.87.5m4.26 2.46-.87-.5m-4.26-2.46.87-.5m4.26 2.46-.87.5"></path></svg>
     };
 
     return (
         <div style={{
             minHeight: "100vh", background: "var(--bg-primary)", color: "var(--text-primary)",
-            fontFamily: "system-ui, -apple-system, sans-serif", position: "relative", overflowX: "hidden"
+            fontFamily: "system-ui, -apple-system, sans-serif"
         }}>
             {/* Animated Background Orbs */}
             <div className="orb orb-violet" style={{ width: 500, height: 500, top: -150, right: -100 }} />
@@ -212,6 +215,12 @@ export default function HospitalDashboard() {
                                     <p style={{ color: "var(--text-secondary)", fontSize: "0.95rem", margin: "8px 0 0 52px" }}>Track record uploads and access requests made by this hospital.</p>
                                 </div>
                                 <AuditLogs />
+                            </div>
+                        )}
+
+                        {activeTab === "doctors" && (
+                            <div className="animate-fade-up">
+                                <DoctorManagement />
                             </div>
                         )}
                     </div>

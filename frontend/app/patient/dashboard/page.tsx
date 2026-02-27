@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import api from "@/utils/api";
 
-import ProfileCard from "./components/ProfileCard";
 import TimelineView from "./components/TimelineView";
 import AIInsights from "./components/AIInsights";
 import Analytics from "./components/Analytics";
@@ -12,12 +11,42 @@ import DocumentVault from "./components/DocumentVault";
 import AccessManager from "./components/AccessManager";
 import ChatBotEmbed from "./components/ChatBotEmbed";
 
-type Tab = "timeline" | "ai" | "analytics" | "vault" | "access" | "privacy";
+type Tab = "timeline" | "ai" | "analytics" | "vault" | "access";
+
+const TABS: { id: Tab; label: string; icon: JSX.Element; color: string }[] = [
+    {
+        id: "timeline", label: "Medical Timeline", color: "#1ABC9C",
+        icon: <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></svg>,
+    },
+    {
+        id: "ai", label: "Health Insights", color: "#8b5cf6",
+        icon: <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>,
+    },
+    {
+        id: "analytics", label: "Health Analytics", color: "#F39C12",
+        icon: <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="20" x2="12" y2="10" /><line x1="18" y1="20" x2="18" y2="4" /><line x1="6" y1="20" x2="6" y2="16" /></svg>,
+    },
+    {
+        id: "vault", label: "Document Vault", color: "#3b82f6",
+        icon: <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></svg>,
+    },
+    {
+        id: "access", label: "Hospital Access", color: "#E74C3C",
+        icon: <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>,
+    },
+];
+
+const TAB_META: Record<Tab, { title: string; subtitle: string }> = {
+    timeline: { title: "Medical Timeline", subtitle: "Chronological history of hospital visits and treatments" },
+    ai: { title: "Health Insights", subtitle: "Automated AI analysis based on your medical records" },
+    analytics: { title: "Health Analytics", subtitle: "Statistical overview and trends in your medical history" },
+    vault: { title: "Document Vault", subtitle: "Secure repository for your medical reports and prescriptions" },
+    access: { title: "Hospital Access Manager", subtitle: "Control which healthcare providers can access your records" },
+};
 
 export default function PatientDashboard() {
     const router = useRouter();
-    const [activeTab, setActiveTab] = useState<Tab>("timeline");
-
+    const [activeTab, setActiveTab] = useState<Tab>("analytics");
     const [profile, setProfile] = useState<any>(null);
     const [records, setRecords] = useState<any[]>([]);
     const [hospitals, setHospitals] = useState<any[]>([]);
@@ -41,9 +70,7 @@ export default function PatientDashboard() {
             setPermissions(perms.data);
         } catch {
             setError("Failed to load dashboard data. Please log in again.");
-        } finally {
-            setLoading(false);
-        }
+        } finally { setLoading(false); }
     }, [router]);
 
     useEffect(() => { fetchAll(); }, [fetchAll]);
@@ -51,175 +78,163 @@ export default function PatientDashboard() {
     const logout = () => { localStorage.clear(); router.push("/login"); };
 
     if (loading) return (
-        <div style={{ minHeight: "100vh", background: "#f8fafc", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
-            <div className="spinner" style={{ width: 40, height: 40, borderWidth: 3, borderColor: "#cbd5e1", borderTopColor: "#3b82f6" }} />
-            <p style={{ color: "#475569", fontWeight: 500 }}>Loading Dashboard…</p>
+        <div style={{ minHeight: "100vh", background: "#F4F7FE", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
+            <div style={{ width: 44, height: 44, borderRadius: "50%", background: "linear-gradient(135deg,#1ABC9C,#2ECC71)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 4 }}>
+                <svg width="22" height="22" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></svg>
+            </div>
+            <div className="spinner" />
+            <p style={{ color: "#5A6A7A", fontWeight: 500, fontSize: "0.9rem" }}>Loading Dashboard…</p>
         </div>
     );
 
     if (error) return (
-        <div style={{ minHeight: "100vh", background: "#f8fafc", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <div style={{ color: "#ef4444", fontWeight: 500 }}>Warning: {error}</div>
+        <div style={{ minHeight: "100vh", background: "#F4F7FE", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ background: "#fff", padding: "32px 40px", borderRadius: 16, boxShadow: "0 4px 20px rgba(0,0,0,0.08)", color: "#E74C3C", fontWeight: 600 }}>⚠ {error}</div>
         </div>
     );
 
-    const TABS: { id: Tab; label: string; icon: string }[] = [
-        { id: "timeline", label: "Medical Timeline", icon: "Clock" },
-        { id: "ai", label: "Health Insights", icon: "Activity" },
-        { id: "analytics", label: "Health Analytics", icon: "BarChart" },
-        { id: "vault", label: "Document Vault", icon: "Folder" },
-        { id: "access", label: "Hospital Access", icon: "Shield" },
-    ];
-
-    const IconMap: Record<string, any> = {
-        Clock: <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></svg>,
-        Activity: <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>,
-        BarChart: <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="20" x2="12" y2="10" /><line x1="18" y1="20" x2="18" y2="4" /><line x1="6" y1="20" x2="6" y2="16" /></svg>,
-        Folder: <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></svg>,
-        Shield: <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>,
-    };
+    const currentTab = TABS.find(t => t.id === activeTab)!;
+    const initials = profile?.fullName?.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase() ?? "P";
 
     return (
-        <div className="min-h-screen text-slate-200 font-sans relative overflow-hidden" style={{ background: "var(--bg-primary)" }}>
-            {/* Background Orbs */}
-            <div className="orb-violet" />
-            <div className="orb-blue" />
-            <div className="orb-cyan" />
-
-            {/* Navbar */}
-            <nav className="glass sticky top-0 z-50 px-8 h-16 flex items-center justify-between border-b border-slate-700/50">
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: "bold", color: "white", background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)", boxShadow: "0 4px 12px rgba(37, 99, 235, 0.3)" }}>
-                        U
-                    </div>
+        <div className="dashboard-shell">
+            {/* ── LEFT SIDEBAR ─────────────────────────────────── */}
+            <aside className="dashboard-sidebar">
+                {/* Logo */}
+                <div className="sidebar-logo">
+                    <div className="sidebar-logo-icon">U</div>
                     <div>
-                        <div style={{ fontWeight: 800, fontSize: "1.1rem", letterSpacing: "0.02em", color: "#fff", lineHeight: 1.2 }}>UPRMS</div>
-                        <div style={{ fontSize: "0.65rem", color: "#94a3b8", letterSpacing: "0.08em", textTransform: "uppercase", fontWeight: 700 }}>Patient Portal</div>
+                        <div style={{ fontWeight: 800, fontSize: "1.05rem", color: "#fff", lineHeight: 1.2 }}>UPRMS</div>
+                        <div style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 2 }}>Patient Portal</div>
                     </div>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
-                    <button style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", position: "relative", display: "flex", alignItems: "center", transition: "color 0.2s" }}
-                        onMouseOver={e => e.currentTarget.style.color = "#fff"}
-                        onMouseOut={e => e.currentTarget.style.color = "#94a3b8"}>
-                        <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
-                        <span style={{ position: "absolute", top: -2, right: -2, width: 8, height: 8, background: "#ef4444", borderRadius: "50%", border: "2px solid var(--bg-primary)", boxShadow: "0 0 8px rgba(239, 68, 68, 0.6)" }} />
-                    </button>
-                    <button onClick={logout} className="btn-outline" style={{ padding: "8px 20px", fontSize: "0.85rem", fontWeight: 600 }}>
+
+                {/* Nav */}
+                <nav className="sidebar-nav">
+                    <div className="sidebar-section-label">Main Menu</div>
+                    {TABS.map(t => (
+                        <button
+                            key={t.id}
+                            className={`sidebar-nav-btn${activeTab === t.id ? " active" : ""}`}
+                            onClick={() => setActiveTab(t.id)}
+                        >
+                            <span className="nav-icon">{t.icon}</span>
+                            {t.label}
+                            {activeTab === t.id && (
+                                <span style={{ marginLeft: "auto", width: 6, height: 6, borderRadius: "50%", background: "var(--teal-500)", flexShrink: 0 }} />
+                            )}
+                        </button>
+                    ))}
+                </nav>
+
+                {/* Profile at bottom */}
+                <div className="sidebar-bottom">
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, cursor: "pointer" }}
+                        onMouseOver={e => (e.currentTarget.style.background = "rgba(255,255,255,0.06)")}
+                        onMouseOut={e => (e.currentTarget.style.background = "transparent")}>
+                        <div style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(135deg,#1ABC9C,#2ECC71)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: "0.85rem", flexShrink: 0 }}>{initials}</div>
+                        <div style={{ overflow: "hidden" }}>
+                            <div style={{ fontWeight: 600, fontSize: "0.85rem", color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{profile?.fullName ?? "Patient"}</div>
+                            <div style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.4)", marginTop: 1 }}>Patient ID #{profile?.id ?? "—"}</div>
+                        </div>
+                    </div>
+                    <button onClick={logout} className="btn-outline" style={{
+                        width: "100%", marginTop: 8, borderColor: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.5)",
+                        fontSize: "0.82rem", padding: "9px 14px", justifyContent: "flex-start", gap: 8
+                    }}>
+                        <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>
                         Sign Out
                     </button>
                 </div>
-            </nav>
+            </aside>
 
-            <div style={{ maxWidth: 1200, margin: "0 auto", padding: "32px 24px", position: "relative", zIndex: 10 }}>
-                {/* Profile Section */}
-                {profile && <ProfileCard profile={profile} recordCount={records.length} hospitalCount={hospitals.length} onProfileUpdate={fetchAll} />}
+            {/* ── RIGHT BODY ───────────────────────────────────── */}
+            <div className="dashboard-body">
+                {/* Top Header */}
+                <header className="dashboard-topbar">
+                    <div>
+                        <div className="topbar-title">{TAB_META[activeTab].title}</div>
+                        <div className="topbar-subtitle">{TAB_META[activeTab].subtitle}</div>
+                    </div>
+                    <div className="topbar-actions">
+                        {/* Notification bell */}
+                        <button className="topbar-icon-btn">
+                            <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>
+                            <span className="notification-dot" />
+                        </button>
+                        {/* Avatar */}
+                        <div className="topbar-avatar" title={profile?.fullName}>{initials}</div>
+                    </div>
+                </header>
 
-                {/* Dynamic Dashboard Area */}
-                <div style={{ display: "flex", gap: 32, alignItems: "flex-start", flexWrap: "wrap", marginTop: 32 }}>
+                {/* Main Content */}
+                <main className="dashboard-content">
+                    {/* Quick stats row at top of every page */}
+                    <div className="kpi-grid animate-fade-up" style={{ marginBottom: 28 }}>
+                        <div className="kpi-card">
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                                <div className="kpi-icon-wrap" style={{ background: "rgba(26,188,156,0.12)" }}>
+                                    <svg width="20" height="20" fill="none" stroke="#1ABC9C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></svg>
+                                </div>
+                                <span className="kpi-trend up">↑ Active</span>
+                            </div>
+                            <div className="kpi-value">{records.length}</div>
+                            <div className="kpi-label">Total Records</div>
+                        </div>
 
-                    {/* Sidebar Tabs */}
-                    <div className="glass-strong" style={{ width: 240, display: "flex", flexDirection: "column", gap: 8, flexShrink: 0, padding: "20px 16px", borderRadius: 16, background: "rgba(15, 23, 42, 0.4)" }}>
-                        <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8, paddingLeft: 12 }}>Navigation</div>
-                        {TABS.map(t => (
-                            <button key={t.id} onClick={() => setActiveTab(t.id)} style={{
-                                display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderRadius: 8, border: "none",
-                                fontSize: "0.9rem", fontWeight: 600, cursor: "pointer", transition: "all 0.2s ease", textAlign: "left",
-                                background: activeTab === t.id ? "rgba(59, 130, 246, 0.15)" : "transparent",
-                                color: activeTab === t.id ? "#60a5fa" : "var(--text-secondary)",
-                                borderLeft: activeTab === t.id ? "3px solid #3b82f6" : "3px solid transparent",
-                                boxShadow: activeTab === t.id ? "inset 0 0 20px rgba(59, 130, 246, 0.05)" : "none"
-                            }}
-                                onMouseOver={e => { if (activeTab !== t.id) { e.currentTarget.style.background = "rgba(255,255,255,0.05)"; e.currentTarget.style.color = "#fff"; } }}
-                                onMouseOut={e => { if (activeTab !== t.id) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--text-secondary)"; } }}
-                            >
-                                <span style={{ color: activeTab === t.id ? "#60a5fa" : "inherit", opacity: activeTab === t.id ? 1 : 0.7 }}>{IconMap[t.icon]}</span>
-                                {t.label}
-                            </button>
-                        ))}
+                        <div className="kpi-card">
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                                <div className="kpi-icon-wrap" style={{ background: "rgba(30,42,95,0.08)" }}>
+                                    <svg width="20" height="20" fill="none" stroke="#1E2A5F" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
+                                </div>
+                                <span className="kpi-trend neutral">Linked</span>
+                            </div>
+                            <div className="kpi-value">{hospitals.length}</div>
+                            <div className="kpi-label">Hospitals</div>
+                        </div>
+
+                        <div className="kpi-card">
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                                <div className="kpi-icon-wrap" style={{ background: "rgba(243,156,18,0.1)" }}>
+                                    <svg width="20" height="20" fill="none" stroke="#F39C12" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
+                                </div>
+                                <span className="kpi-trend up">Granted</span>
+                            </div>
+                            <div className="kpi-value">{permissions.filter((p: any) => p.accessGranted).length}</div>
+                            <div className="kpi-label">Active Permissions</div>
+                        </div>
+
+                        <div className="kpi-card">
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                                <div className="kpi-icon-wrap" style={{ background: "rgba(139,92,246,0.1)" }}>
+                                    <svg width="20" height="20" fill="none" stroke="#8b5cf6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 8v4l3 3" /></svg>
+                                </div>
+                                <span className="kpi-trend neutral">
+                                    {records.length > 0
+                                        ? new Date(records[records.length - 1]?.visitDate).getFullYear()
+                                        : "—"}
+                                </span>
+                            </div>
+                            <div className="kpi-value" style={{ fontSize: "1.5rem" }}>
+                                {records.length > 0
+                                    ? new Date(records[records.length - 1]?.visitDate).toLocaleDateString("en-IN", { month: "short", day: "numeric" })
+                                    : "—"}
+                            </div>
+                            <div className="kpi-label">Last Visit</div>
+                        </div>
                     </div>
 
-                    {/* Main Content Area */}
-                    <div className="glass" style={{ flex: 1, minWidth: 300, minHeight: 400, borderRadius: 16, padding: 32 }}>
-                        {activeTab === "timeline" && (
-                            <div className="animate-fade-up">
-                                <div style={{ marginBottom: 32, borderBottom: "1px solid var(--border)", paddingBottom: 16 }}>
-                                    <h2 style={{ fontSize: "1.25rem", fontWeight: 700, color: "#fff", margin: 0, display: "flex", alignItems: "center", gap: 12 }}>
-                                        <div style={{ padding: 8, background: "rgba(59, 130, 246, 0.1)", borderRadius: 8, color: "#60a5fa" }}>
-                                            {IconMap["Clock"]}
-                                        </div>
-                                        Medical Timeline
-                                    </h2>
-                                    <p style={{ color: "var(--text-secondary)", fontSize: "0.875rem", margin: "8px 0 0 52px" }}>Chronological history of hospital visits and treatments.</p>
-                                </div>
-                                <TimelineView records={records} />
-                            </div>
-                        )}
-
-                        {activeTab === "ai" && (
-                            <div className="animate-fade-up">
-                                <div style={{ marginBottom: 32, borderBottom: "1px solid var(--border)", paddingBottom: 16 }}>
-                                    <h2 style={{ fontSize: "1.25rem", fontWeight: 700, color: "#fff", margin: 0, display: "flex", alignItems: "center", gap: 12 }}>
-                                        <div style={{ padding: 8, background: "rgba(168, 85, 247, 0.1)", borderRadius: 8, color: "#c084fc" }}>
-                                            {IconMap["Activity"]}
-                                        </div>
-                                        Health Insights
-                                    </h2>
-                                    <p style={{ color: "var(--text-secondary)", fontSize: "0.875rem", margin: "8px 0 0 52px" }}>Automated analysis based on your medical records.</p>
-                                </div>
-                                <AIInsights records={records} />
-                            </div>
-                        )}
-
-                        {activeTab === "analytics" && (
-                            <div className="animate-fade-up">
-                                <div style={{ marginBottom: 32, borderBottom: "1px solid var(--border)", paddingBottom: 16 }}>
-                                    <h2 style={{ fontSize: "1.25rem", fontWeight: 700, color: "#fff", margin: 0, display: "flex", alignItems: "center", gap: 12 }}>
-                                        <div style={{ padding: 8, background: "rgba(16, 185, 129, 0.1)", borderRadius: 8, color: "#34d399" }}>
-                                            {IconMap["BarChart"]}
-                                        </div>
-                                        Health Analytics
-                                    </h2>
-                                    <p style={{ color: "var(--text-secondary)", fontSize: "0.875rem", margin: "8px 0 0 52px" }}>Statistical overview of your medical history.</p>
-                                </div>
-                                <Analytics records={records} />
-                            </div>
-                        )}
-
-                        {activeTab === "vault" && (
-                            <div className="animate-fade-up">
-                                <div style={{ marginBottom: 32, borderBottom: "1px solid var(--border)", paddingBottom: 16 }}>
-                                    <h2 style={{ fontSize: "1.25rem", fontWeight: 700, color: "#fff", margin: 0, display: "flex", alignItems: "center", gap: 12 }}>
-                                        <div style={{ padding: 8, background: "rgba(245, 158, 11, 0.1)", borderRadius: 8, color: "#fbbf24" }}>
-                                            {IconMap["Folder"]}
-                                        </div>
-                                        Document Vault
-                                    </h2>
-                                    <p style={{ color: "var(--text-secondary)", fontSize: "0.875rem", margin: "8px 0 0 52px" }}>Secure repository for your medical reports and prescriptions.</p>
-                                </div>
-                                <DocumentVault records={records} />
-                            </div>
-                        )}
-
-                        {activeTab === "access" && (
-                            <div className="animate-fade-up">
-                                <div style={{ marginBottom: 32, borderBottom: "1px solid var(--border)", paddingBottom: 16 }}>
-                                    <h2 style={{ fontSize: "1.25rem", fontWeight: 700, color: "#fff", margin: 0, display: "flex", alignItems: "center", gap: 12 }}>
-                                        <div style={{ padding: 8, background: "rgba(239, 68, 68, 0.1)", borderRadius: 8, color: "#f87171" }}>
-                                            {IconMap["Shield"]}
-                                        </div>
-                                        Hospital Access Management
-                                    </h2>
-                                    <p style={{ color: "var(--text-secondary)", fontSize: "0.875rem", margin: "8px 0 0 52px" }}>Control permissions for healthcare providers.</p>
-                                </div>
-                                <AccessManager hospitals={hospitals} permissions={permissions} onRefresh={fetchAll} />
-                            </div>
-                        )}
+                    {/* Tab Content */}
+                    <div className="animate-fade-up-delay-1">
+                        {activeTab === "timeline" && <TimelineView records={records} />}
+                        {activeTab === "ai" && <AIInsights records={records} />}
+                        {activeTab === "analytics" && <Analytics records={records} />}
+                        {activeTab === "vault" && <DocumentVault records={records} />}
+                        {activeTab === "access" && <AccessManager hospitals={hospitals} permissions={permissions} onRefresh={fetchAll} />}
                     </div>
-
-                </div>
+                </main>
             </div>
 
-            {/* AI Chat Bot */}
             <ChatBotEmbed />
         </div>
     );

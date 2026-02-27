@@ -11,6 +11,8 @@ import DoctorAISummary from "./components/DoctorAISummary";
 import SmartTimeline from "./components/SmartTimeline";
 import DoctorActivityLog from "./components/DoctorActivityLog";
 import DoctorNotifications from "./components/DoctorNotifications";
+import DoctorSchedule from "./components/DoctorSchedule";
+import DoctorAssignedPatients from "./components/DoctorAssignedPatients";
 
 type Tab =
     | "overview"
@@ -19,11 +21,20 @@ type Tab =
     | "ai"
     | "timeline"
     | "activity"
-    | "notifications";
+    | "notifications"
+    | "schedule"
+    | "assigned";
 
 interface SelectedPatient {
     id: number;
     fullName: string;
+}
+
+interface LicenseStatus {
+    status: string;
+    daysRemaining: number | null;
+    licenseNumber: string;
+    licenseExpiry: string;
 }
 
 const INACTIVITY_MS = 30 * 60 * 1000; // 30 minutes auto-logout
@@ -66,6 +77,17 @@ const BellIcon = () => (
         <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" />
     </svg>
 );
+const ClockIcon = () => (
+    <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+    </svg>
+);
+const PeopleIcon = () => (
+    <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+);
 const LogoutIcon = () => (
     <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
@@ -77,9 +99,11 @@ const LogoutIcon = () => (
 const TABS: { id: Tab; label: string; Icon: React.FC; color: string }[] = [
     { id: "overview", label: "My Profile", Icon: UserIcon, color: "#60a5fa" },
     { id: "search", label: "Patient Search", Icon: SearchIcon, color: "#a78bfa" },
+    { id: "assigned", label: "Assigned Patients", Icon: PeopleIcon, color: "#f472b6" },
     { id: "records", label: "Record Viewer", Icon: FolderIcon, color: "#22d3ee" },
     { id: "ai", label: "AI Summary", Icon: BotIcon, color: "#a78bfa" },
     { id: "timeline", label: "Smart Timeline", Icon: TimelineIcon, color: "#60a5fa" },
+    { id: "schedule", label: "Schedule", Icon: ClockIcon, color: "#10b981" },
     { id: "activity", label: "Activity Log", Icon: ShieldIcon, color: "#9ca3af" },
     { id: "notifications", label: "Notifications", Icon: BellIcon, color: "#fb923c" },
 ];
@@ -87,9 +111,11 @@ const TABS: { id: Tab; label: string; Icon: React.FC; color: string }[] = [
 const TAB_INFO: Record<Tab, { title: string; subtitle: string; iconBg: string }> = {
     overview: { title: "My Profile", subtitle: "View and manage your doctor profile and credentials.", iconBg: "rgba(59,130,246,0.1)" },
     search: { title: "Patient Search", subtitle: "Search patients by name, phone, Aadhaar or ID and check consent status.", iconBg: "rgba(139,92,246,0.1)" },
+    assigned: { title: "Assigned Patients", subtitle: "Patients assigned to you by your hospital admin. Click to view records.", iconBg: "rgba(244,114,182,0.1)" },
     records: { title: "Record Viewer", subtitle: "View complete medical history for patients who have granted access.", iconBg: "rgba(34,211,238,0.1)" },
     ai: { title: "AI Medical Summary", subtitle: "Gemini AI clinical overview — chronic conditions, risk indicators, medication patterns.", iconBg: "rgba(139,92,246,0.1)" },
     timeline: { title: "Smart Timeline", subtitle: "Year-wise health history with surgery, critical and recurring illness markers.", iconBg: "rgba(59,130,246,0.1)" },
+    schedule: { title: "Schedule & Availability", subtitle: "Set working hours, mark leave days, and view your real-time availability.", iconBg: "rgba(16,185,129,0.1)" },
     activity: { title: "Activity Log", subtitle: "Full audit trail of your patient record access and downloads.", iconBg: "rgba(156,163,175,0.1)" },
     notifications: { title: "Notifications", subtitle: "Access alerts, AI risk flags, and system updates.", iconBg: "rgba(251,146,60,0.1)" },
 };
@@ -101,6 +127,7 @@ export default function DoctorDashboard() {
     const router = useRouter();
     const [activeTab, setActiveTab] = useState<Tab>("overview");
     const [profile, setProfile] = useState<any>(null);
+    const [licenseStatus, setLicenseStatus] = useState<LicenseStatus | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [selectedPatient, setSelectedPatient] = useState<SelectedPatient | null>(null);
@@ -130,8 +157,12 @@ export default function DoctorDashboard() {
         const role = localStorage.getItem("role");
         if (role !== "DOCTOR") { router.push("/login"); return; }
         try {
-            const r = await api.get("/doctors/profile");
-            setProfile(r.data);
+            const [profileRes, licenseRes] = await Promise.allSettled([
+                api.get("/doctors/profile"),
+                api.get("/doctors/license-status"),
+            ]);
+            if (profileRes.status === "fulfilled") setProfile(profileRes.value.data);
+            if (licenseRes.status === "fulfilled") setLicenseStatus(licenseRes.value.data);
         } catch {
             setError("Failed to load profile. Please log in again.");
         } finally {
@@ -148,6 +179,13 @@ export default function DoctorDashboard() {
         setSelectedPatient(p);
         setActiveTab("records");
     };
+
+    /* ── License warning config ────────────────────── */
+    const licenseWarning = licenseStatus && (licenseStatus.status === "EXPIRING_SOON" || licenseStatus.status === "EXPIRED");
+    const licenseWarnConfig = licenseWarning ? {
+        EXPIRING_SOON: { bg: "rgba(245,158,11,0.12)", border: "rgba(245,158,11,0.3)", color: "#fbbf24", icon: "⚠️", msg: `License expires in ${licenseStatus!.daysRemaining} days` },
+        EXPIRED: { bg: "rgba(239,68,68,0.12)", border: "rgba(239,68,68,0.3)", color: "#f87171", icon: "🚫", msg: "License EXPIRED — contact your hospital admin immediately" },
+    }[licenseStatus!.status as "EXPIRING_SOON" | "EXPIRED"] : null;
 
     /* ── loading / error states ────────────────────── */
     if (loading) return (
@@ -168,7 +206,7 @@ export default function DoctorDashboard() {
 
     /* ── render ────────────────────────────────────── */
     return (
-        <div style={{ minHeight: "100vh", background: "var(--bg-primary)", color: "var(--text-primary)", fontFamily: "system-ui,-apple-system,sans-serif", position: "relative", overflowX: "hidden" }}>
+        <div style={{ minHeight: "100vh", background: "var(--bg-primary)", color: "var(--text-primary)", fontFamily: "system-ui,-apple-system,sans-serif" }}>
 
             {/* Background orbs */}
             <div className="orb orb-violet" style={{ width: 500, height: 500, top: -150, right: -100 }} />
@@ -189,6 +227,13 @@ export default function DoctorDashboard() {
 
                 {/* Right side */}
                 <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+
+                    {/* License expiry warning in navbar */}
+                    {licenseWarnConfig && (
+                        <div style={{ padding: "5px 14px", background: licenseWarnConfig.bg, border: `1px solid ${licenseWarnConfig.border}`, borderRadius: 20, fontSize: "0.78rem", fontWeight: 600, color: licenseWarnConfig.color, display: "flex", alignItems: "center", gap: 6 }}>
+                            {licenseWarnConfig.icon} {licenseWarnConfig.msg}
+                        </div>
+                    )}
 
                     {/* Doctor badge */}
                     <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 14px", background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.25)", borderRadius: 20 }}>
@@ -219,8 +264,6 @@ export default function DoctorDashboard() {
             {/* ── Page body ─────────────────────────────── */}
             <div style={{ maxWidth: 1280, margin: "0 auto", padding: "28px 24px" }}>
 
-
-
                 <div style={{ display: "flex", gap: 28, alignItems: "flex-start", flexWrap: "wrap" }}>
 
                     {/* ── Sidebar ───────────────────────── */}
@@ -250,17 +293,36 @@ export default function DoctorDashboard() {
                             <div style={{ fontSize: "0.82rem", color: "#e2e8f0", fontWeight: 500 }}>{profile?.hospitalName || "—"}</div>
                         </div>
 
+                        {/* Role + Status */}
+                        {profile?.role && (
+                            <div style={{ padding: "10px 12px", background: "rgba(255,255,255,0.02)", borderRadius: 8, border: "1px solid var(--border)" }}>
+                                <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "var(--text-secondary)", textTransform: "uppercase", marginBottom: 4, letterSpacing: "0.07em" }}>Role</div>
+                                <div style={{ fontSize: "0.8rem", color: "#94a3b8" }}>{profile.role?.replace(/_/g, " ")}</div>
+                            </div>
+                        )}
+
                         {/* Licence number */}
                         {profile?.licenseNumber && (
                             <div style={{ padding: "10px 12px", background: "rgba(255,255,255,0.02)", borderRadius: 8, border: "1px solid var(--border)" }}>
                                 <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "var(--text-secondary)", textTransform: "uppercase", marginBottom: 4, letterSpacing: "0.07em" }}>Licence</div>
-                                <div style={{ fontSize: "0.8rem", color: "#94a3b8", fontFamily: "monospace" }}>{profile.licenseNumber}</div>
+                                <div style={{ fontSize: "0.8rem", color: licenseStatus?.status === "EXPIRED" ? "#f87171" : licenseStatus?.status === "EXPIRING_SOON" ? "#fbbf24" : "#94a3b8", fontFamily: "monospace" }}>{profile.licenseNumber}</div>
                             </div>
                         )}
                     </div>
 
                     {/* ── Main content area ─────────────── */}
                     <div className="glass animate-fade-up" style={{ flex: 1, minWidth: 300, minHeight: 650, padding: 40, background: "rgba(17,24,39,0.6)" }}>
+
+                        {/* License expiry alert banner (inside content) */}
+                        {licenseWarnConfig && (
+                            <div style={{ marginBottom: 24, padding: "12px 18px", borderRadius: 10, background: licenseWarnConfig.bg, border: `1px solid ${licenseWarnConfig.border}`, display: "flex", alignItems: "center", gap: 12 }}>
+                                <span style={{ fontSize: "1.2rem" }}>{licenseWarnConfig.icon}</span>
+                                <div>
+                                    <div style={{ fontWeight: 700, color: licenseWarnConfig.color, fontSize: "0.9rem" }}>{licenseWarnConfig.msg}</div>
+                                    <div style={{ fontSize: "0.78rem", color: licenseWarnConfig.color, opacity: 0.8, marginTop: 2 }}>License No: {licenseStatus?.licenseNumber} · Please renew immediately to avoid suspension.</div>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Tab header */}
                         <div style={{ marginBottom: 32, borderBottom: "1px solid var(--border)", paddingBottom: 20 }}>
@@ -276,9 +338,11 @@ export default function DoctorDashboard() {
                         {/* Tab panels */}
                         {activeTab === "overview" && <DoctorProfileCard onProfileUpdate={fetchProfile} />}
                         {activeTab === "search" && <PatientSearchDoctor onSelectPatient={handleSelectPatient} />}
+                        {activeTab === "assigned" && <DoctorAssignedPatients onSelectPatient={handleSelectPatient} />}
                         {activeTab === "records" && <DoctorRecordViewer patientId={selectedPatient?.id} patientName={selectedPatient?.fullName} />}
                         {activeTab === "ai" && <DoctorAISummary patientId={selectedPatient?.id} patientName={selectedPatient?.fullName} />}
                         {activeTab === "timeline" && <SmartTimeline patientId={selectedPatient?.id} patientName={selectedPatient?.fullName} />}
+                        {activeTab === "schedule" && <DoctorSchedule />}
                         {activeTab === "activity" && <DoctorActivityLog />}
                         {activeTab === "notifications" && <DoctorNotifications />}
                     </div>

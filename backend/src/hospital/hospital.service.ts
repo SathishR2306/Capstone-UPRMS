@@ -2,9 +2,11 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository, InjectEntityManager } from '@nestjs/typeorm';
 import { Repository, EntityManager } from 'typeorm';
 import { Hospital } from './entities/hospital.entity';
-import { User } from '../user/entities/user.entity';
+import { User, UserRole } from '../user/entities/user.entity';
 import { AccessPermission } from '../access-permission/entities/access-permission.entity';
 import { MedicalRecord } from '../medical-record/entities/medical-record.entity';
+import { Doctor } from '../doctor/entities/doctor.entity';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class HospitalService {
@@ -76,5 +78,53 @@ export class HospitalService {
             totalRecords,
             recentActivity: activity
         };
+    }
+
+    // ── Doctor Registration ──────────────────────────────────────────────────
+    async registerDoctor(hospitalUserId: number, dto: any) {
+        // 1. Find the hospital to get its true ID
+        const hospital = await this.hospitalRepo.findOne({ where: { userId: hospitalUserId } });
+        if (!hospital) throw new NotFoundException('Hospital not found');
+
+        // 2. Check if phone already exists
+        const existing = await this.entityManager.findOne(User, { where: { phone: dto.phone } });
+        if (existing) throw new NotFoundException('Phone number is already registered');
+
+        // 3. Hash temporary password
+        const hashed = await bcrypt.hash(dto.password, 10);
+
+        // 4. Create User
+        const user = this.entityManager.create(User, {
+            phone: dto.phone,
+            aadhaar_number: dto.aadhaarNumber,
+            password: hashed,
+            role: UserRole.DOCTOR,
+        });
+
+        let savedUser;
+        try {
+            savedUser = await this.entityManager.save(User, user);
+        } catch (error: any) {
+            if (error.code === '23505' && error.detail && error.detail.includes('aadhaar_number')) {
+                throw new NotFoundException('Aadhaar number already registered');
+            }
+            throw error;
+        }
+
+        // 5. Create Doctor Profile
+        const doctor = this.entityManager.create(Doctor, {
+            userId: savedUser.id,
+            hospitalId: hospital.id,
+            fullName: dto.fullName,
+            specialization: dto.specialization,
+            department: dto.department,
+            role: dto.role, // JUNIOR_DOCTOR, etc.
+            licenseNumber: dto.licenseNumber,
+            licenseExpiry: dto.licenseExpiry,
+        });
+
+        await this.entityManager.save(Doctor, doctor);
+
+        return { message: 'Doctor registered successfully', doctorId: doctor.id };
     }
 }

@@ -106,7 +106,7 @@ export class AccessPermissionService {
             patientId: r.patientId,
             fullName: r.patient.fullName,
             phone: r.patient.user.phone,
-            maskedAadhaar: 'XXXX-XXXX-' + r.patient.user.aadhaar_number.slice(-4),
+            maskedAadhaar: r.patient.user.aadhaar_number ? 'XXXX-XXXX-' + r.patient.user.aadhaar_number.slice(-4) : 'N/A',
             status: r.status,
             grantedAt: r.grantedAt
         }));

@@ -51,6 +51,33 @@ export class DoctorController {
         return this.doctorService.changePassword(req.user.userId, body);
     }
 
+    // GET /doctors/license-status
+    @Get('license-status')
+    getLicenseStatus(@Request() req) {
+        return this.doctorService.getLicenseStatus(req.user.userId);
+    }
+
+    // GET /doctors/schedule
+    @Get('schedule')
+    getSchedule(@Request() req) {
+        return this.doctorService.getSchedule(req.user.userId);
+    }
+
+    // PATCH /doctors/schedule
+    @Patch('schedule')
+    updateSchedule(
+        @Request() req,
+        @Body() body: { workingHoursStart?: string; workingHoursEnd?: string; leaveDays?: string[] },
+    ) {
+        return this.doctorService.updateSchedule(req.user.userId, body);
+    }
+
+    // GET /doctors/assigned-patients
+    @Get('assigned-patients')
+    getAssignedPatients(@Request() req) {
+        return this.doctorService.getAssignedPatients(req.user.userId);
+    }
+
     // GET /doctors/search-patient?q=
     @Get('search-patient')
     searchPatient(@Request() req, @Query('q') query: string) {
@@ -63,7 +90,8 @@ export class DoctorController {
         @Param('patientId', ParseIntPipe) patientId: number,
         @Request() req,
     ) {
-        return this.doctorService.getPatientRecords(patientId, req.user.userId);
+        const ip = req.ip;
+        return this.doctorService.getPatientRecords(patientId, req.user.userId, ip);
     }
 
     // POST /doctors/patients/:patientId/log-download
