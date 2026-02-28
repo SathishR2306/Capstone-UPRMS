@@ -41,4 +41,20 @@ export class HospitalController {
     registerDoctor(@Request() req, @Body() dto: any) {
         return this.hospitalService.registerDoctor(req.user.userId, dto);
     }
+
+    @Post('patients')
+    @UseGuards(RolesGuard)
+    @Roles('HOSPITAL')
+    registerPatient(
+        @Request() req,
+        @Body() dto: {
+            fullName: string;
+            phone: string;
+            aadhaarNumber: string;
+            dateOfBirth: string;
+            gender: string;
+        },
+    ) {
+        return this.hospitalService.registerPatient(req.user.userId, dto);
+    }
 }

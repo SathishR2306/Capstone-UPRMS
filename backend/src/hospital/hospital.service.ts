@@ -1,8 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository, InjectEntityManager } from '@nestjs/typeorm';
 import { Repository, EntityManager } from 'typeorm';
 import { Hospital } from './entities/hospital.entity';
 import { User, UserRole } from '../user/entities/user.entity';
+import { Patient } from '../patient/entities/patient.entity';
 import { AccessPermission } from '../access-permission/entities/access-permission.entity';
 import { MedicalRecord } from '../medical-record/entities/medical-record.entity';
 import { Doctor } from '../doctor/entities/doctor.entity';
@@ -126,5 +127,60 @@ export class HospitalService {
         await this.entityManager.save(Doctor, doctor);
 
         return { message: 'Doctor registered successfully', doctorId: doctor.id };
+    }
+
+    // ── Patient Registration (by hospital admin) ──────────────────────────────
+    async registerPatient(hospitalUserId: number, dto: {
+        fullName: string;
+        phone: string;
+        aadhaarNumber: string;
+        dateOfBirth: string;
+        gender: string;
+    }) {
+        const hospital = await this.hospitalRepo.findOne({ where: { userId: hospitalUserId } });
+        if (!hospital) throw new NotFoundException('Hospital not found');
+
+        const existingPhone = await this.entityManager.findOne(User, { where: { phone: dto.phone } });
+        if (existingPhone) throw new ConflictException('Phone number is already registered');
+
+        // Auto-generate a readable temp password: first 4 letters of name + @ + last 4 of phone
+        const namePart = dto.fullName.replace(/\s+/g, '').slice(0, 4).toLowerCase();
+        const phonePart = dto.phone.slice(-4);
+        const tempPassword = `${namePart}@${phonePart}`;
+        const hashed = await bcrypt.hash(tempPassword, 10);
+
+        const user = this.entityManager.create(User, {
+            phone: dto.phone,
+            aadhaar_number: dto.aadhaarNumber,
+            password: hashed,
+            role: UserRole.PATIENT,
+        });
+
+        let savedUser;
+        try {
+            savedUser = await this.entityManager.save(User, user);
+        } catch (error: any) {
+            if (error.code === '23505' && error.detail && error.detail.includes('aadhaar_number')) {
+                throw new ConflictException('Aadhaar number already registered');
+            }
+            throw error;
+        }
+
+        const patient = this.entityManager.create(Patient, {
+            userId: savedUser.id,
+            fullName: dto.fullName,
+            dateOfBirth: dto.dateOfBirth,
+            gender: dto.gender,
+        });
+        const savedPatient = await this.entityManager.save(Patient, patient);
+
+        return {
+            message: 'Patient registered successfully',
+            patientId: savedPatient.id,
+            userId: savedUser.id,
+            fullName: dto.fullName,
+            phone: dto.phone,
+            tempPassword,
+        };
     }
 }

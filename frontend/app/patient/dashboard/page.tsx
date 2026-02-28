@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import api from "@/utils/api";
 
@@ -13,7 +13,7 @@ import ChatBotEmbed from "./components/ChatBotEmbed";
 
 type Tab = "timeline" | "ai" | "analytics" | "vault" | "access";
 
-const TABS: { id: Tab; label: string; icon: JSX.Element; color: string }[] = [
+const TABS: { id: Tab; label: string; icon: React.ReactElement; color: string }[] = [
     {
         id: "timeline", label: "Medical Timeline", color: "#1ABC9C",
         icon: <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></svg>,
@@ -105,7 +105,7 @@ export default function PatientDashboard() {
                     <div className="sidebar-logo-icon">U</div>
                     <div>
                         <div style={{ fontWeight: 800, fontSize: "1.05rem", color: "#fff", lineHeight: 1.2 }}>UPRMS</div>
-                        <div style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 2 }}>Patient Portal</div>
+                        <div style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.7)", letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 2 }}>Patient Portal</div>
                     </div>
                 </div>
 
@@ -135,11 +135,11 @@ export default function PatientDashboard() {
                         <div style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(135deg,#1ABC9C,#2ECC71)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: "0.85rem", flexShrink: 0 }}>{initials}</div>
                         <div style={{ overflow: "hidden" }}>
                             <div style={{ fontWeight: 600, fontSize: "0.85rem", color: "#fff", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{profile?.fullName ?? "Patient"}</div>
-                            <div style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.4)", marginTop: 1 }}>Patient ID #{profile?.id ?? "—"}</div>
+                            <div style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.7)", marginTop: 1 }}>Patient ID #{profile?.id ?? "—"}</div>
                         </div>
                     </div>
                     <button onClick={logout} className="btn-outline" style={{
-                        width: "100%", marginTop: 8, borderColor: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.5)",
+                        width: "100%", marginTop: 8, borderColor: "rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.75)",
                         fontSize: "0.82rem", padding: "9px 14px", justifyContent: "flex-start", gap: 8
                     }}>
                         <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>

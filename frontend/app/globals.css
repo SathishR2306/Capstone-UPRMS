@@ -23,11 +23,11 @@
   --sidebar-active: rgba(26, 188, 156, 0.18);
 
   /* Text */
-  --text-dark: #2C3E50;
-  --text-medium: #5A6A7A;
-  --text-muted: #8A9BAC;
+  --text-dark: #1E293B;
+  --text-medium: #3D5166;
+  --text-muted: #5F7285;
   --text-white: #FFFFFF;
-  --text-sidebar: rgba(255, 255, 255, 0.65);
+  --text-sidebar: rgba(255, 255, 255, 0.85);
   --text-sidebar-active: #FFFFFF;
 
   /* Border */
@@ -48,7 +48,7 @@
   --accent-violet: #8b5cf6;
   --accent-cyan: #06b6d4;
   --text-primary: #f9fafb;
-  --text-secondary: #9ca3af;
+  --text-secondary: #d1d5db;
 }
 
 /* ── Reset ───────────────────────────────────────────── */
@@ -128,7 +128,7 @@ body {
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.55);
   padding: 12px 12px 6px;
 }
 
@@ -166,7 +166,7 @@ body {
 }
 
 .nav-icon {
-  color: rgba(255, 255, 255, 0.4);
+  color: rgba(255, 255, 255, 0.65);
   transition: color 0.2s;
   flex-shrink: 0;
 }
@@ -212,7 +212,7 @@ body {
 
 .topbar-subtitle {
   font-size: 0.78rem;
-  color: var(--text-muted);
+  color: var(--text-medium);
   margin-top: 1px;
 }
 
@@ -351,8 +351,8 @@ body {
 
 .kpi-label {
   font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--text-muted);
+  font-weight: 700;
+  color: var(--text-medium);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -368,18 +368,18 @@ body {
 }
 
 .kpi-trend.up {
-  background: rgba(26, 188, 156, 0.12);
-  color: #0fa57a;
+  background: rgba(26, 188, 156, 0.18);
+  color: #0a7d5c;
 }
 
 .kpi-trend.down {
-  background: rgba(231, 76, 60, 0.1);
-  color: var(--danger);
+  background: rgba(231, 76, 60, 0.15);
+  color: #b83229;
 }
 
 .kpi-trend.neutral {
-  background: rgba(243, 156, 18, 0.12);
-  color: #b07d10;
+  background: rgba(243, 156, 18, 0.18);
+  color: #8a5e0a;
 }
 
 /* ── Charts grid ─────────────────────────────────────── */
@@ -408,7 +408,7 @@ body {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.07em;
-  color: var(--text-muted);
+  color: var(--text-medium);
   padding: 10px 14px;
   text-align: left;
   border-bottom: 2px solid var(--border-light);
@@ -441,23 +441,23 @@ body {
 }
 
 .badge-teal {
-  background: var(--teal-light);
-  color: #0d8a72;
+  background: rgba(26, 188, 156, 0.16);
+  color: #086b57;
 }
 
 .badge-navy {
-  background: rgba(30, 42, 95, 0.1);
-  color: var(--navy-800);
+  background: rgba(30, 42, 95, 0.12);
+  color: #1E2A5F;
 }
 
 .badge-amber {
-  background: var(--amber-light);
-  color: #9a6000;
+  background: rgba(243, 156, 18, 0.18);
+  color: #7a4d00;
 }
 
 .badge-danger {
-  background: var(--danger-light);
-  color: #b83229;
+  background: rgba(231, 76, 60, 0.15);
+  color: #991f18;
 }
 
 /* ── Signout / Outline buttons ───────────────────────── */
@@ -655,6 +655,33 @@ body {
   .kpi-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* ── Dark panel wrapper – hosts dark-themed components inside light layout ── */
+.dark-panel {
+  background: #111827;
+  border-radius: 16px;
+  padding: 32px;
+  color: #f1f5f9;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.18);
+}
+
+/* Restore glass classes to actual dark backgrounds inside dark-panel */
+.dark-panel .glass {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+}
+
+.dark-panel .glass-strong {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
 }
 
 /* ── Legacy dark mode classes kept for compatibility ─── */
