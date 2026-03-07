@@ -27,7 +27,6 @@ const FIELDS: Field[] = [
     { name: "department", label: "Department", type: "text" },
     { name: "role", label: "Role", type: "select", options: ROLE_OPTIONS },
     { name: "licenseNumber", label: "License Number", type: "text" },
-    { name: "licenseExpiry", label: "License Expiry Date", type: "date" },
 ];
 
 export default function DoctorRegistrationModal({ onSuccess, onClose }: Props) {

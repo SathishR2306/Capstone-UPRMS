@@ -1,7 +1,6 @@
-"use client";
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import api from "@/utils/api";
+import { LuSearch, LuCalendar, LuPhone, LuShieldCheck, LuClock } from "react-icons/lu";
 
 type PatientResult = {
     id: number;
@@ -14,28 +13,42 @@ type PatientResult = {
     accessGranted: boolean;
 };
 
-export default function PatientSearch() {
+export default function PatientSearch({ onlyLinked = false }: { onlyLinked?: boolean }) {
     const [query, setQuery] = useState("");
     const [results, setResults] = useState<PatientResult[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
 
+    // Initial fetch for linked patients
+    useEffect(() => {
+        if (onlyLinked) {
+            handleSearch();
+        }
+    }, [onlyLinked]);
+
+
     async function handleSearch(e?: React.FormEvent) {
         if (e) e.preventDefault();
-        if (query.trim().length < 2) return;
+        
+        // Allow empty query if onlyLinked is true to show all linked patients
+        if (!onlyLinked && query.trim().length < 2) return;
 
         setLoading(true);
         setError("");
         try {
-            const res = await api.get(`/patient/search?q=${encodeURIComponent(query)}`);
+            const url = `/patient/search?q=${encodeURIComponent(query)}&linked=${onlyLinked}`;
+            const res = await api.get(url);
             setResults(res.data);
-            if (res.data.length === 0) setError("No patients found matching your search.");
+            if (res.data.length === 0) {
+                setError(onlyLinked ? "No linked patients found." : "No patients found matching your search.");
+            }
         } catch {
             setError("Failed to search patients. Please try again.");
         } finally {
             setLoading(false);
         }
     }
+
 
     async function handleAccessAction(patientId: number, action: "request" | "cancel") {
         try {
@@ -56,7 +69,7 @@ export default function PatientSearch() {
             <form onSubmit={handleSearch} style={{ display: "flex", gap: 16, marginBottom: 32 }}>
                 <div style={{ flex: 1, position: "relative" }}>
                     <div style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", color: "var(--text-secondary)" }}>
-                        <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                        <LuSearch size={20} />
                     </div>
                     <input
                         type="text"
@@ -64,7 +77,7 @@ export default function PatientSearch() {
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
                         className="input-field"
-                        style={{ paddingLeft: 48, background: "rgba(255, 255, 255, 0.05)" }}
+                        style={{ paddingLeft: 48, background: "rgba(255, 255, 255, 0.05)", color: "#fff" }}
                     />
                 </div>
                 <button type="submit" disabled={loading} className="btn-primary" style={{ padding: "0 28px" }}>
@@ -93,11 +106,11 @@ export default function PatientSearch() {
                                     </div>
                                     <div style={{ display: "flex", gap: 16, fontSize: "0.85rem", color: "var(--text-secondary)" }}>
                                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
+                                            <LuCalendar size={14} />
                                             {patient.maskedAadhaar}
                                         </div>
                                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" /></svg>
+                                            <LuPhone size={14} />
                                             {patient.phone}
                                         </div>
                                     </div>
@@ -107,13 +120,13 @@ export default function PatientSearch() {
                                 <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, minWidth: 160 }}>
                                     {patient.accessGranted ? (
                                         <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#4ade80", fontSize: "0.85rem", fontWeight: 700, padding: "6px 12px", background: "rgba(74, 222, 128, 0.1)", border: "1px solid rgba(74, 222, 128, 0.2)", borderRadius: 6 }}>
-                                            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
+                                            <LuShieldCheck size={14} />
                                             Access Granted
                                         </div>
                                     ) : patient.accessStatus === "PENDING" ? (
                                         <>
                                             <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#fbbf24", fontSize: "0.85rem", fontWeight: 700, padding: "6px 12px", background: "rgba(251, 191, 36, 0.1)", border: "1px solid rgba(251, 191, 36, 0.2)", borderRadius: 6 }}>
-                                                <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+                                                <LuClock size={14} />
                                                 Request Pending
                                             </div>
                                             <button onClick={() => handleAccessAction(patient.id, "cancel")} style={{ background: "none", border: "none", color: "var(--text-secondary)", fontSize: "0.8rem", textDecoration: "underline", cursor: "pointer", fontWeight: 500 }}>
@@ -121,8 +134,8 @@ export default function PatientSearch() {
                                             </button>
                                         </>
                                     ) : (
-                                        <button onClick={() => handleAccessAction(patient.id, "request")} className="btn-primary" style={{ padding: "8px 16px", fontSize: "0.85rem" }}>
-                                            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" /></svg>
+                                        <button onClick={() => handleAccessAction(patient.id, "request")} className="btn-primary" style={{ padding: "8px 16px", fontSize: "0.85rem", display: "flex", alignItems: "center", gap: 8 }}>
+                                            <LuShieldCheck size={14} />
                                             Request Access
                                         </button>
                                     )}

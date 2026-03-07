@@ -23,7 +23,17 @@ export class PatientController {
 
     @Get('search')
     @Roles('HOSPITAL')
-    searchPatients(@Request() req, @Query('q') query: string) {
-        return this.patientService.searchPatients(query, req.user.userId);
+    searchPatients(
+        @Request() req, 
+        @Query('q') query: string,
+        @Query('linked') linked?: string
+    ) {
+        return this.patientService.searchPatients(query, req.user.userId, linked === 'true');
+    }
+
+    @Get('find')
+    @Roles('HOSPITAL')
+    findByRegNumber(@Request() req, @Query('q') query: string) {
+        return this.patientService.findByRegNumber(query, req.user.userId);
     }
 }

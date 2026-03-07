@@ -50,9 +50,6 @@ export class Doctor {
     @Column({ nullable: true })
     licenseNumber: string;
 
-    @Column({ nullable: true, type: 'date' })
-    licenseExpiry: Date;
-
     @Column({ nullable: true })
     department: string;
 

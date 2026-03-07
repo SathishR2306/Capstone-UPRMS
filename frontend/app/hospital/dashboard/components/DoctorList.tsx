@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import api from "../../../../utils/api";
-
+import { FaPlus } from 'react-icons/fa';
 interface Doctor {
     id: number;
     fullName: string;
@@ -11,7 +11,6 @@ interface Doctor {
     role: string;
     status: string;
     licenseNumber: string;
-    licenseExpiry: string;
     licenseStatus: string;
     daysRemaining: number | null;
     phone: string;
@@ -22,7 +21,6 @@ interface Doctor {
 interface Props {
     onSelectDoctor: (d: Doctor) => void;
     selectedDoctorId?: number;
-    onAddDoctor: () => void;
     refreshKey: number;
 }
 
@@ -43,7 +41,6 @@ const ROLE_LABELS: Record<string, string> = {
 const STATUS_CONFIG: Record<string, { color: string; bg: string; label: string }> = {
     ACTIVE: { color: "#10b981", bg: "rgba(16,185,129,0.12)", label: "Active" },
     SUSPENDED: { color: "#ef4444", bg: "rgba(239,68,68,0.12)", label: "Suspended" },
-    PENDING: { color: "#f59e0b", bg: "rgba(245,158,11,0.12)", label: "Pending" },
 };
 
 const LICENSE_CONFIG: Record<string, { color: string; icon: string }> = {
@@ -53,7 +50,7 @@ const LICENSE_CONFIG: Record<string, { color: string; icon: string }> = {
     NO_EXPIRY_SET: { color: "#6b7280", icon: "–" },
 };
 
-export default function DoctorList({ onSelectDoctor, selectedDoctorId, onAddDoctor, refreshKey }: Props) {
+export default function DoctorList({ onSelectDoctor, selectedDoctorId, refreshKey }: Props) {
     const [doctors, setDoctors] = useState<Doctor[]>([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
@@ -126,13 +123,6 @@ export default function DoctorList({ onSelectDoctor, selectedDoctorId, onAddDoct
                         Manage your hospital's medical staff
                     </p>
                 </div>
-                <button
-                    onClick={onAddDoctor}
-                    style={{ padding: "10px 20px", background: "linear-gradient(135deg,#3b82f6,#8b5cf6)", border: "none", borderRadius: 10, color: "#fff", fontWeight: 600, fontSize: "0.88rem", cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}
-                >
-                    <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
-                    Add Doctor
-                </button>
             </div>
 
             {/* Filters */}
@@ -143,7 +133,7 @@ export default function DoctorList({ onSelectDoctor, selectedDoctorId, onAddDoct
                     placeholder="Search by name, department…"
                     style={{ flex: 1, minWidth: 200, padding: "8px 14px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, color: "#fff", fontSize: "0.88rem", outline: "none" }}
                 />
-                {["ALL", "ACTIVE", "SUSPENDED", "PENDING"].map(s => (
+                {["ALL", "ACTIVE", "SUSPENDED"].map(s => (
                     <button key={s} onClick={() => setFilterStatus(s)}
                         style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid", fontSize: "0.8rem", fontWeight: 600, cursor: "pointer", transition: "all 0.2s", borderColor: filterStatus === s ? "#3b82f6" : "rgba(255,255,255,0.1)", background: filterStatus === s ? "rgba(59,130,246,0.15)" : "transparent", color: filterStatus === s ? "#60a5fa" : "#64748b" }}
                     >{s}</button>
@@ -199,8 +189,8 @@ export default function DoctorList({ onSelectDoctor, selectedDoctorId, onAddDoct
                                 </span>
 
                                 {/* License */}
-                                <span style={{ fontSize: "0.78rem", color: lc.color, whiteSpace: "nowrap", minWidth: 90 }}>
-                                    {lc.icon} License {d.licenseStatus === "EXPIRING_SOON" ? `(${d.daysRemaining}d)` : d.licenseStatus === "EXPIRED" ? "EXPIRED" : d.licenseStatus === "VALID" ? "Valid" : "—"}
+                                <span style={{ fontSize: "0.78rem", color: "#10b981", whiteSpace: "nowrap", minWidth: 90 }}>
+                                    ✓ License Valid
                                 </span>
 
                                 {/* Working hours */}

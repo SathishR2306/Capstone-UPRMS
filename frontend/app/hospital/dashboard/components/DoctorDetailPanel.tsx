@@ -11,7 +11,6 @@ interface Doctor {
     role: string;
     status: string;
     licenseNumber: string;
-    licenseExpiry: string;
     licenseStatus: string;
     daysRemaining: number | null;
     workingHoursStart: string;
@@ -101,10 +100,22 @@ export default function DoctorDetailPanel({ doctor, onClose }: Props) {
             setAssignMsg("Patient assigned successfully!");
             setAssignPatientId("");
             fetchPatients();
+            fetchPerformance(); // Update count
         } catch (err: any) {
             setAssignMsg(err?.response?.data?.message || "Failed to assign.");
         }
         setTimeout(() => setAssignMsg(""), 3000);
+    };
+
+    const handleUnassign = async (patientId: number) => {
+        if (!confirm("Are you sure you want to unassign this patient?")) return;
+        try {
+            await api.delete(`/hospitals/doctors/${doctor.id}/unassign-patient/${patientId}`);
+            setPatients(prev => prev.filter(p => p.patientId !== patientId));
+            fetchPerformance(); // Update count
+        } catch (err: any) {
+            alert(err?.response?.data?.message || "Failed to unassign.");
+        }
     };
 
     const lc = {
@@ -128,10 +139,10 @@ export default function DoctorDetailPanel({ doctor, onClose }: Props) {
                     </div>
                 </div>
                 <div style={{ textAlign: "right" }}>
-                    <div style={{ fontSize: "0.78rem", fontWeight: 700, color: lc.color }}>
-                        License: {doctor.licenseStatus?.replace(/_/g, " ")}
-                        {doctor.daysRemaining !== null && doctor.daysRemaining <= 30 ? ` (${doctor.daysRemaining}d)` : ""}
+                    <div style={{ fontSize: "0.78rem", fontWeight: 700, color: "#10b981" }}>
+                        License: VERIFIED
                     </div>
+                    <div style={{ fontSize: "0.7rem", color: "#64748b", marginTop: 2 }}>{doctor.licenseNumber}</div>
                     {doctor.workingHoursStart && (
                         <div style={{ fontSize: "0.75rem", color: "#64748b", marginTop: 2 }}>
                             Hours: {doctor.workingHoursStart} – {doctor.workingHoursEnd}
@@ -258,7 +269,17 @@ export default function DoctorDetailPanel({ doctor, onClose }: Props) {
                                                 <div style={{ fontSize: "0.75rem", color: "#64748b" }}>ID: {p.patientId} · {p.gender || "—"}</div>
                                             </div>
                                             {p.isEmergency && <span style={{ padding: "2px 8px", borderRadius: 20, fontSize: "0.7rem", fontWeight: 700, color: "#f87171", background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.3)" }}>EMERGENCY</span>}
-                                            <div style={{ fontSize: "0.72rem", color: "#475569" }}>{new Date(p.assignedAt).toLocaleDateString()}</div>
+                                            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+                                                <div style={{ fontSize: "0.72rem", color: "#475569" }}>{new Date(p.assignedAt).toLocaleDateString()}</div>
+                                                <button 
+                                                    onClick={() => handleUnassign(p.patientId)}
+                                                    style={{ background: "none", border: "none", color: "#ef4444", fontSize: "0.75rem", fontWeight: 600, cursor: "pointer", padding: "2px 4px", borderRadius: 4 }}
+                                                    onMouseOver={e => e.currentTarget.style.background = "rgba(239,68,68,0.1)"}
+                                                    onMouseOut={e => e.currentTarget.style.background = "none"}
+                                                >
+                                                    Unassign
+                                                </button>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>

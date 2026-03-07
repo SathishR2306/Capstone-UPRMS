@@ -3,7 +3,6 @@
 import { useState } from "react";
 import DoctorList from "./DoctorList";
 import DoctorDetailPanel from "./DoctorDetailPanel";
-import DoctorRegistrationModal from "./DoctorRegistrationModal";
 
 interface Doctor {
     id: number;
@@ -13,7 +12,6 @@ interface Doctor {
     role: string;
     status: string;
     licenseNumber: string;
-    licenseExpiry: string;
     licenseStatus: string;
     daysRemaining: number | null;
     workingHoursStart: string;
@@ -22,7 +20,6 @@ interface Doctor {
 
 export default function DoctorManagement() {
     const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
-    const [showModal, setShowModal] = useState(false);
     const [refreshKey, setRefreshKey] = useState(0);
 
     const refresh = () => setRefreshKey(k => k + 1);
@@ -32,7 +29,6 @@ export default function DoctorManagement() {
             <DoctorList
                 selectedDoctorId={selectedDoctor?.id}
                 onSelectDoctor={d => setSelectedDoctor(prev => prev?.id === d.id ? null : d)}
-                onAddDoctor={() => setShowModal(true)}
                 refreshKey={refreshKey}
             />
 
@@ -40,13 +36,6 @@ export default function DoctorManagement() {
                 <DoctorDetailPanel
                     doctor={selectedDoctor}
                     onClose={() => setSelectedDoctor(null)}
-                />
-            )}
-
-            {showModal && (
-                <DoctorRegistrationModal
-                    onSuccess={refresh}
-                    onClose={() => setShowModal(false)}
                 />
             )}
         </div>

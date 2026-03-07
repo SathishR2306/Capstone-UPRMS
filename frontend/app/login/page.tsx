@@ -4,11 +4,29 @@ import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import api from "../../utils/api";
+import { 
+    LuHospital, 
+    LuTriangleAlert, 
+    LuArrowRight, 
+    LuArrowLeft, 
+    LuUser, 
+    LuStethoscope, 
+    LuShieldCheck 
+} from "react-icons/lu";
+
+type LoginRole = "PATIENT" | "HOSPITAL" | "DOCTOR";
 
 export default function LoginPage() {
     const router = useRouter();
+    const [role, setRole] = useState<LoginRole>("PATIENT");
+    
+    // Form fields
     const [phone, setPhone] = useState("");
+    const [hospitalName, setHospitalName] = useState("");
+    const [registrationNumber, setRegistrationNumber] = useState("");
+    const [docId, setDocId] = useState("");
     const [password, setPassword] = useState("");
+    
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
 
@@ -17,16 +35,33 @@ export default function LoginPage() {
         setError("");
         setLoading(true);
 
+        const payload: any = { password };
+        if (role === "PATIENT") {
+            payload.phone = phone;
+        } else if (role === "HOSPITAL") {
+            payload.hospitalName = hospitalName;
+            payload.registrationNumber = registrationNumber;
+        } else if (role === "DOCTOR") {
+            payload.hospitalName = hospitalName;
+            payload.docId = Number(docId);
+        }
+
         try {
-            const { data } = await api.post("/auth/login", { phone, password });
+            const { data } = await api.post("/auth/login", payload);
             // Store token and role
             localStorage.setItem("token", data.access_token);
             localStorage.setItem("role", data.role);
 
             // Role-based redirect
-            if (data.role === "PATIENT") router.push("/patient/dashboard");
-            else if (data.role === "HOSPITAL") router.push("/hospital/dashboard");
-            else if (data.role === "DOCTOR") router.push("/doctor/dashboard");
+            if (data.role === "HOSPITAL") {
+                localStorage.setItem("hospitalSlug", data.slug);
+                router.push(`/${data.slug}/dashboard`);
+            }
+            else if (data.role === "DOCTOR") {
+                localStorage.setItem("hospitalSlug", data.slug);
+                router.push(`/${data.slug}/doctor/${data.doctorId}/dashboard`);
+            }
+            else if (data.role === "PATIENT") router.push("/patient/dashboard");
             else router.push("/");
         } catch (err: unknown) {
             const msg =
@@ -37,6 +72,12 @@ export default function LoginPage() {
             setLoading(false);
         }
     }
+
+    const roles: { id: LoginRole; label: string; icon: any; color: string }[] = [
+        { id: "PATIENT", label: "Patient", icon: LuUser, color: "#60a5fa" },
+        { id: "HOSPITAL", label: "Hospital", icon: LuHospital, color: "#a78bfa" },
+        { id: "DOCTOR", label: "Doctor", icon: LuStethoscope, color: "#34d399" },
+    ];
 
     return (
         <div
@@ -74,7 +115,7 @@ export default function LoginPage() {
                 onMouseEnter={(e) => ((e.target as HTMLElement).style.color = "#f9fafb")}
                 onMouseLeave={(e) => ((e.target as HTMLElement).style.color = "var(--text-secondary)")}
             >
-                ← Back to Home
+                <LuArrowLeft size={16} /> Back to Home
             </Link>
 
             {/* Card */}
@@ -82,23 +123,61 @@ export default function LoginPage() {
                 className="glass-strong animate-fade-up"
                 style={{
                     width: "100%",
-                    maxWidth: 440,
-                    padding: "44px 40px",
+                    maxWidth: 480,
+                    padding: "40px",
                     position: "relative",
                     zIndex: 1,
                 }}
             >
-                {/* Logo */}
+                {/* Header */}
                 <div style={{ textAlign: "center", marginBottom: 32 }}>
-                    <div style={{ fontSize: "2.5rem", marginBottom: 10 }}>🏥</div>
-                    <h1
-                        style={{ fontSize: "1.6rem", fontWeight: 800, marginBottom: 6 }}
-                    >
-                        Welcome back
+                    <h1 style={{ fontSize: "1.8rem", fontWeight: 800, marginBottom: 8, color: "#fff" }}>
+                        Sign in to UPRMS
                     </h1>
-                    <p style={{ color: "var(--text-secondary)", fontSize: "0.9rem" }}>
-                        Sign in to your <span className="gradient-text" style={{ fontWeight: 600 }}>UPRMS</span> account
+                    <p style={{ color: "var(--text-secondary)", fontSize: "0.95rem" }}>
+                        Enter your credentials to access your portal
                     </p>
+                </div>
+
+                {/* Role Switcher */}
+                <div 
+                    style={{ 
+                        display: "grid", 
+                        gridTemplateColumns: "repeat(3, 1fr)", 
+                        gap: 12, 
+                        marginBottom: 32,
+                        background: "rgba(255,255,255,0.03)",
+                        padding: 6,
+                        borderRadius: 14,
+                        border: "1px solid var(--border)"
+                    }}
+                >
+                    {roles.map((r) => (
+                        <button
+                            key={r.id}
+                            onClick={() => { setRole(r.id); setError(""); }}
+                            style={{
+                                display: "flex",
+                                flexDirection: "column",
+                                alignItems: "center",
+                                gap: 6,
+                                padding: "12px 8px",
+                                borderRadius: 10,
+                                border: "none",
+                                background: role === r.id ? r.color : "transparent",
+                                color: role === r.id ? "#0f172a" : "var(--text-secondary)",
+                                cursor: "pointer",
+                                transition: "all 0.2s ease",
+                                fontWeight: 700,
+                                fontSize: "0.75rem",
+                                textTransform: "uppercase",
+                                letterSpacing: "0.02em"
+                            }}
+                        >
+                            <r.icon size={20} />
+                            {r.label}
+                        </button>
+                    ))}
                 </div>
 
                 {/* Error banner */}
@@ -114,127 +193,126 @@ export default function LoginPage() {
                             marginBottom: 24,
                             display: "flex",
                             alignItems: "center",
-                            gap: 8,
+                            gap: 10,
                         }}
                     >
-                        ⚠️ {error}
+                        <LuTriangleAlert size={18} /> {error}
                     </div>
                 )}
 
-                <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-                    {/* Phone */}
-                    <div>
-                        <label
-                            style={{
-                                display: "block",
-                                fontSize: "0.82rem",
-                                fontWeight: 600,
-                                color: "var(--text-secondary)",
-                                marginBottom: 8,
-                                letterSpacing: "0.04em",
-                            }}
-                        >
-                            PHONE NUMBER
-                        </label>
-                        <input
-                            id="login-phone"
-                            type="tel"
-                            className="input-field"
-                            placeholder="9XXXXXXXXX"
-                            value={phone}
-                            onChange={(e) => setPhone(e.target.value)}
-                            required
-                            autoComplete="tel"
-                        />
-                    </div>
+                <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                    
+                    {role === "PATIENT" && (
+                        <div className="animate-fade-in">
+                            <label className="input-label">PHONE NUMBER</label>
+                            <input
+                                type="tel"
+                                className="input-field"
+                                placeholder="Enter registered phone"
+                                value={phone}
+                                onChange={(e) => setPhone(e.target.value)}
+                                required
+                            />
+                        </div>
+                    )}
 
-                    {/* Password */}
+                    {(role === "HOSPITAL" || role === "DOCTOR") && (
+                        <div className="animate-fade-in">
+                            <label className="input-label">HOSPITAL NAME</label>
+                            <input
+                                type="text"
+                                className="input-field"
+                                placeholder="Exact hospital name"
+                                value={hospitalName}
+                                onChange={(e) => setHospitalName(e.target.value)}
+                                required
+                            />
+                        </div>
+                    )}
+
+                    {role === "HOSPITAL" && (
+                        <div className="animate-fade-in">
+                            <label className="input-label">HOSPITAL REGISTRATION NUMBER</label>
+                            <input
+                                type="text"
+                                className="input-field"
+                                placeholder="Enter reg number"
+                                value={registrationNumber}
+                                onChange={(e) => setRegistrationNumber(e.target.value)}
+                                required
+                            />
+                        </div>
+                    )}
+
+                    {role === "DOCTOR" && (
+                        <div className="animate-fade-in">
+                            <label className="input-label">DOCTOR ID</label>
+                            <input
+                                type="number"
+                                className="input-field"
+                                placeholder="Your numeric ID"
+                                value={docId}
+                                onChange={(e) => setDocId(e.target.value)}
+                                required
+                            />
+                        </div>
+                    )}
+
                     <div>
-                        <label
-                            style={{
-                                display: "block",
-                                fontSize: "0.82rem",
-                                fontWeight: 600,
-                                color: "var(--text-secondary)",
-                                marginBottom: 8,
-                                letterSpacing: "0.04em",
-                            }}
-                        >
-                            PASSWORD
-                        </label>
+                        <label className="input-label">PASSWORD</label>
                         <input
-                            id="login-password"
                             type="password"
                             className="input-field"
-                            placeholder="Enter your password"
+                            placeholder="••••••••"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             required
-                            autoComplete="current-password"
                         />
                     </div>
 
-                    {/* Submit */}
                     <button
-                        id="login-submit"
                         type="submit"
                         className="btn-primary"
                         disabled={loading}
-                        style={{ marginTop: 8, padding: "14px", width: "100%", fontSize: "0.95rem" }}
+                        style={{ marginTop: 12, padding: "14px", width: "100%", fontSize: "1rem" }}
                     >
                         {loading ? (
-                            <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                                <div className="spinner" />
-                                <span>Signing in…</span>
+                            <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+                                <div className="spinner" /> Signing in…
                             </span>
                         ) : (
-                            <span>Sign In →</span>
+                            <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                                Sign In <LuArrowRight size={18} />
+                            </span>
                         )}
                     </button>
                 </form>
 
-                {/* Role hint */}
-                <div
-                    className="glass"
-                    style={{
-                        marginTop: 24,
-                        padding: "14px 16px",
-                        borderRadius: 12,
-                        fontSize: "0.8rem",
-                        color: "var(--text-secondary)",
-                        lineHeight: 1.7,
-                        textAlign: "center",
-                    }}
-                >
-                    You will be automatically redirected to your dashboard based on your role.
-                    <br />
-                    <span style={{ color: "#60a5fa" }}>Patient</span> ·{" "}
-                    <span style={{ color: "#a78bfa" }}>Hospital</span> ·{" "}
-                    <span style={{ color: "#34d399" }}>Doctor</span>
-                </div>
-
-                {/* Register link */}
-                <p
-                    style={{
-                        textAlign: "center",
-                        marginTop: 24,
-                        fontSize: "0.875rem",
-                        color: "var(--text-secondary)",
-                    }}
-                >
-                    Don&apos;t have an account?{" "}
-                    <Link
-                        href="/register"
-                        style={{
-                            color: "#a78bfa",
-                            fontWeight: 600,
-                            textDecoration: "none",
-                        }}
-                    >
+                <p style={{ textAlign: "center", marginTop: 32, fontSize: "0.9rem", color: "var(--text-secondary)" }}>
+                    Need a new account?{" "}
+                    <Link href="/register" style={{ color: "#a78bfa", fontWeight: 700, textDecoration: "none" }}>
                         Register here
                     </Link>
                 </p>
             </div>
+            
+            <style jsx>{`
+                .input-label {
+                    display: block;
+                    font-size: 0.75rem;
+                    font-weight: 700;
+                    color: var(--text-secondary);
+                    margin-bottom: 8px;
+                    letter-spacing: 0.05em;
+                }
+                @keyframes fadeIn {
+                    from { opacity: 0; transform: translateY(4px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+                .animate-fade-in {
+                    animation: fadeIn 0.3s ease forwards;
+                }
+            `}</style>
         </div>
     );
 }

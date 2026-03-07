@@ -10,29 +10,42 @@ import Analytics from "./components/Analytics";
 import DocumentVault from "./components/DocumentVault";
 import AccessManager from "./components/AccessManager";
 import ChatBotEmbed from "./components/ChatBotEmbed";
+import { 
+    LuFileClock, 
+    LuZap, 
+    LuLayoutDashboard, 
+    LuFolder, 
+    LuShield,
+    LuActivity,
+    LuLogOut,
+    LuBell,
+    LuHospital,
+    LuShieldCheck,
+    LuClock
+} from "react-icons/lu";
 
 type Tab = "timeline" | "ai" | "analytics" | "vault" | "access";
 
 const TABS: { id: Tab; label: string; icon: React.ReactElement; color: string }[] = [
     {
         id: "timeline", label: "Medical Timeline", color: "#1ABC9C",
-        icon: <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></svg>,
+        icon: <LuFileClock size={18} />,
     },
     {
         id: "ai", label: "Health Insights", color: "#8b5cf6",
-        icon: <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>,
+        icon: <LuZap size={18} />,
     },
     {
         id: "analytics", label: "Health Analytics", color: "#F39C12",
-        icon: <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="20" x2="12" y2="10" /><line x1="18" y1="20" x2="18" y2="4" /><line x1="6" y1="20" x2="6" y2="16" /></svg>,
+        icon: <LuLayoutDashboard size={18} />,
     },
     {
         id: "vault", label: "Document Vault", color: "#3b82f6",
-        icon: <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></svg>,
+        icon: <LuFolder size={18} />,
     },
     {
         id: "access", label: "Hospital Access", color: "#E74C3C",
-        icon: <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>,
+        icon: <LuShield size={18} />,
     },
 ];
 
@@ -80,7 +93,7 @@ export default function PatientDashboard() {
     if (loading) return (
         <div style={{ minHeight: "100vh", background: "#F4F7FE", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
             <div style={{ width: 44, height: 44, borderRadius: "50%", background: "linear-gradient(135deg,#1ABC9C,#2ECC71)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 4 }}>
-                <svg width="22" height="22" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></svg>
+                <LuActivity size={22} color="white" />
             </div>
             <div className="spinner" />
             <p style={{ color: "#5A6A7A", fontWeight: 500, fontSize: "0.9rem" }}>Loading Dashboard…</p>
@@ -142,7 +155,7 @@ export default function PatientDashboard() {
                         width: "100%", marginTop: 8, borderColor: "rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.75)",
                         fontSize: "0.82rem", padding: "9px 14px", justifyContent: "flex-start", gap: 8
                     }}>
-                        <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>
+                        <LuLogOut size={16} />
                         Sign Out
                     </button>
                 </div>
@@ -159,7 +172,7 @@ export default function PatientDashboard() {
                     <div className="topbar-actions">
                         {/* Notification bell */}
                         <button className="topbar-icon-btn">
-                            <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>
+                            <LuBell size={18} />
                             <span className="notification-dot" />
                         </button>
                         {/* Avatar */}
@@ -174,7 +187,7 @@ export default function PatientDashboard() {
                         <div className="kpi-card">
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                                 <div className="kpi-icon-wrap" style={{ background: "rgba(26,188,156,0.12)" }}>
-                                    <svg width="20" height="20" fill="none" stroke="#1ABC9C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></svg>
+                                    <LuActivity size={20} color="#1ABC9C" />
                                 </div>
                                 <span className="kpi-trend up">↑ Active</span>
                             </div>
@@ -185,18 +198,18 @@ export default function PatientDashboard() {
                         <div className="kpi-card">
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                                 <div className="kpi-icon-wrap" style={{ background: "rgba(30,42,95,0.08)" }}>
-                                    <svg width="20" height="20" fill="none" stroke="#1E2A5F" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>
+                                    <LuHospital size={20} color="#1E2A5F" />
                                 </div>
                                 <span className="kpi-trend neutral">Linked</span>
                             </div>
-                            <div className="kpi-value">{hospitals.length}</div>
+                            <div className="kpi-value">{permissions.length}</div>
                             <div className="kpi-label">Hospitals</div>
                         </div>
 
                         <div className="kpi-card">
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                                 <div className="kpi-icon-wrap" style={{ background: "rgba(243,156,18,0.1)" }}>
-                                    <svg width="20" height="20" fill="none" stroke="#F39C12" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
+                                    <LuShieldCheck size={20} color="#F39C12" />
                                 </div>
                                 <span className="kpi-trend up">Granted</span>
                             </div>
@@ -207,7 +220,7 @@ export default function PatientDashboard() {
                         <div className="kpi-card">
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                                 <div className="kpi-icon-wrap" style={{ background: "rgba(139,92,246,0.1)" }}>
-                                    <svg width="20" height="20" fill="none" stroke="#8b5cf6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 8v4l3 3" /></svg>
+                                    <LuClock size={20} color="#8b5cf6" />
                                 </div>
                                 <span className="kpi-trend neutral">
                                     {records.length > 0

@@ -75,13 +75,13 @@ export default function DocumentVault({ records }: Props) {
     }
 
     return (
-        <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 32,backgroundColor:"#000000ff",padding:"10px",borderRadius:"20px" }}>
             {/* Search + Filter */}
             <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
                 <div style={{ flex: 1, minWidth: 240, position: "relative" }}>
                     <svg width="18" height="18" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)" }}><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
                     <input placeholder="Search by diagnosis or hospital…" value={search} onChange={e => setSearch(e.target.value)}
-                        className="input-field" style={{ width: "100%", padding: "12px 16px 12px 48px", borderRadius: 12, fontSize: "0.95rem" }} />
+                        className="input-field" style={{ width: "100%", padding: "12px 16px 12px 48px", borderRadius: 12,background:"#000000", fontSize: "0.95rem" }} />
                 </div>
             </div>
 

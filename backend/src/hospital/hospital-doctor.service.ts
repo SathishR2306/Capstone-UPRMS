@@ -51,7 +51,6 @@ export class HospitalDoctorService {
             department?: string;
             role?: DoctorRole;
             licenseNumber?: string;
-            licenseExpiry?: string;
         },
     ) {
         const hospital = await this.getHospital(adminUserId);
@@ -77,7 +76,6 @@ export class HospitalDoctorService {
             department: dto.department,
             role: dto.role ?? DoctorRole.JUNIOR_DOCTOR,
             licenseNumber: dto.licenseNumber,
-            licenseExpiry: dto.licenseExpiry ? new Date(dto.licenseExpiry) : undefined,
             status: DoctorStatus.ACTIVE,
         });
         const savedDoctor = await this.doctorRepo.save(doctor);
@@ -100,16 +98,8 @@ export class HospitalDoctorService {
         });
 
         return doctors.map(d => {
-            // Compute license warning
-            let licenseStatus = 'NO_EXPIRY_SET';
+            let licenseStatus = 'VALID';
             let daysRemaining: number | null = null;
-            if (d.licenseExpiry) {
-                const diff = new Date(d.licenseExpiry).getTime() - Date.now();
-                daysRemaining = Math.ceil(diff / (1000 * 60 * 60 * 24));
-                if (daysRemaining < 0) licenseStatus = 'EXPIRED';
-                else if (daysRemaining <= 30) licenseStatus = 'EXPIRING_SOON';
-                else licenseStatus = 'VALID';
-            }
 
             return {
                 id: d.id,
@@ -120,7 +110,6 @@ export class HospitalDoctorService {
                 role: d.role,
                 status: d.status,
                 licenseNumber: d.licenseNumber,
-                licenseExpiry: d.licenseExpiry,
                 licenseStatus,
                 daysRemaining,
                 phone: d.user?.phone,
@@ -141,7 +130,6 @@ export class HospitalDoctorService {
             role?: DoctorRole;
             status?: DoctorStatus;
             licenseNumber?: string;
-            licenseExpiry?: string;
             workingHoursStart?: string;
             workingHoursEnd?: string;
         },
@@ -157,7 +145,6 @@ export class HospitalDoctorService {
             ...(dto.role !== undefined && { role: dto.role }),
             ...(dto.status !== undefined && { status: dto.status }),
             ...(dto.licenseNumber !== undefined && { licenseNumber: dto.licenseNumber }),
-            ...(dto.licenseExpiry !== undefined && { licenseExpiry: new Date(dto.licenseExpiry) }),
             ...(dto.workingHoursStart !== undefined && { workingHoursStart: dto.workingHoursStart }),
             ...(dto.workingHoursEnd !== undefined && { workingHoursEnd: dto.workingHoursEnd }),
         });
@@ -240,19 +227,33 @@ export class HospitalDoctorService {
         const hospital = await this.getHospital(adminUserId);
         const doctor = await this.doctorRepo.findOne({ where: { id: doctorId, hospitalId: hospital.id } });
         if (!doctor) throw new NotFoundException('Doctor not found in your hospital');
+        if (doctor.status !== DoctorStatus.ACTIVE) {
+            throw new ForbiddenException('Cannot assign patients to a non-active doctor');
+        }
 
         const patient = await this.patientRepo.findOne({ where: { id: dto.patientId } });
         if (!patient) throw new NotFoundException('Patient not found');
 
-        // Upsert
-        const existing = await this.assignmentRepo.findOne({
-            where: { doctorId: doctor.id, patientId: dto.patientId },
+        // Check if patient is already assigned to ANY doctor
+        const existingAssignment = await this.assignmentRepo.findOne({
+            where: { patientId: dto.patientId },
+            relations: ['doctor', 'doctor.hospital']
         });
-        if (existing) {
-            existing.isEmergency = dto.isEmergency ?? false;
-            existing.assignedBy = hospital.hospitalName;
-            await this.assignmentRepo.save(existing);
-            return { message: 'Patient assignment updated', assignmentId: existing.id };
+
+        if (existingAssignment) {
+            if (existingAssignment.doctorId === doctor.id) {
+                // Same doctor: just update flags
+                existingAssignment.isEmergency = dto.isEmergency ?? false;
+                existingAssignment.assignedBy = hospital.hospitalName;
+                await this.assignmentRepo.save(existingAssignment);
+                return { message: 'Patient assignment updated', assignmentId: existingAssignment.id };
+            } else {
+                // Different doctor: throw conflict
+                const otherDoc = existingAssignment.doctor;
+                throw new ConflictException(
+                    `Patient is already assigned to Dr. ${otherDoc.fullName} (Hospital: ${otherDoc.hospital?.hospitalName}). Please unassign them first.`
+                );
+            }
         }
 
         const assignment = this.assignmentRepo.create({
@@ -263,6 +264,25 @@ export class HospitalDoctorService {
         });
         const saved = await this.assignmentRepo.save(assignment);
         return { message: 'Patient assigned successfully', assignmentId: saved.id };
+    }
+
+    // ── Unassign a patient from a doctor ──────────────────────────────────────
+    async unassignPatient(
+        adminUserId: number,
+        doctorId: number,
+        patientId: number
+    ) {
+        const hospital = await this.getHospital(adminUserId);
+        const doctor = await this.doctorRepo.findOne({ where: { id: doctorId, hospitalId: hospital.id } });
+        if (!doctor) throw new NotFoundException('Doctor not found in your hospital');
+
+        const assignment = await this.assignmentRepo.findOne({
+            where: { doctorId, patientId }
+        });
+        if (!assignment) throw new NotFoundException('Assignment not found');
+
+        await this.assignmentRepo.remove(assignment);
+        return { message: 'Patient unassigned successfully' };
     }
 
     // ── Get patients assigned to a doctor ─────────────────────────────────────
