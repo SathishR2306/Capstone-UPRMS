@@ -1,37 +1,50 @@
 "use client";
 
 import Link from "next/link";
+import { LuHospital, LuStethoscope, LuBot, LuFileText, LuZap, LuArrowRight, LuShieldCheck } from "react-icons/lu";
 
 const features = [
   {
-    icon: "🔐",
+    icon: <LuShieldCheck size={32} />,
     title: "Patient-Controlled Access",
     desc: "You decide which hospitals can view and upload your records. Full consent, always.",
+    accent: "rgba(15, 212, 176, 0.12)",
+    border: "rgba(15, 212, 176, 0.2)",
   },
   {
-    icon: "🏥",
+    icon: <LuHospital size={32} />,
     title: "Multi-Hospital Support",
     desc: "Records from any hospital in one place. No more carrying physical files.",
+    accent: "rgba(26, 143, 255, 0.1)",
+    border: "rgba(26, 143, 255, 0.18)",
   },
   {
-    icon: "👨‍⚕️",
+    icon: <LuStethoscope size={32} />,
     title: "Doctor Read Access",
     desc: "Doctors linked to hospitals can view your records securely — read-only.",
+    accent: "rgba(125, 211, 252, 0.09)",
+    border: "rgba(125, 211, 252, 0.18)",
   },
   {
-    icon: "🤖",
+    icon: <LuBot size={32} />,
     title: "AI-Powered Insights",
     desc: "Smart diagnosis summaries and pattern detection powered by ML models.",
+    accent: "rgba(15, 212, 176, 0.12)",
+    border: "rgba(15, 212, 176, 0.2)",
   },
   {
-    icon: "📄",
+    icon: <LuFileText size={32} />,
     title: "Permanent & Tamper-Proof",
     desc: "Medical records are immutable once uploaded — no edits, no deletions.",
+    accent: "rgba(26, 143, 255, 0.1)",
+    border: "rgba(26, 143, 255, 0.18)",
   },
   {
-    icon: "⚡",
+    icon: <LuZap size={32} />,
     title: "Instant Access",
     desc: "Emergency? Doctors can request access and get records in seconds.",
+    accent: "rgba(125, 211, 252, 0.09)",
+    border: "rgba(125, 211, 252, 0.18)",
   },
 ];
 
@@ -45,29 +58,42 @@ export default function LandingPage() {
         position: "relative",
       }}
     >
+      {/* ── Subtle grid overlay ────────────────────────── */}
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          backgroundImage:
+            "linear-gradient(rgba(15,212,176,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(15,212,176,0.03) 1px, transparent 1px)",
+          backgroundSize: "60px 60px",
+          pointerEvents: "none",
+          zIndex: 0,
+        }}
+      />
+
       {/* ── Animated background orbs ──────────────────── */}
       <div
         className="orb orb-blue"
-        style={{ width: 500, height: 500, top: -100, left: -150 }}
+        style={{ width: 560, height: 560, top: -120, left: -180 }}
       />
       <div
         className="orb orb-violet"
         style={{
-          width: 400,
-          height: 400,
-          top: 200,
-          right: -100,
-          animationDelay: "2s",
+          width: 420,
+          height: 420,
+          top: 220,
+          right: -120,
+          animationDelay: "2.5s",
         }}
       />
       <div
         className="orb orb-cyan"
         style={{
-          width: 300,
-          height: 300,
-          bottom: 100,
-          left: "40%",
-          animationDelay: "4s",
+          width: 320,
+          height: 320,
+          bottom: 120,
+          left: "38%",
+          animationDelay: "5s",
         }}
       />
 
@@ -79,13 +105,13 @@ export default function LandingPage() {
           left: 0,
           right: 0,
           zIndex: 50,
-          padding: "16px 32px",
+          padding: "16px 40px",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          background: "rgba(3, 7, 18, 0.8)",
-          backdropFilter: "blur(20px)",
-          borderBottom: "1px solid rgba(255,255,255,0.06)",
+          background: "rgba(2, 11, 24, 0.82)",
+          backdropFilter: "blur(24px)",
+          borderBottom: "1px solid rgba(15, 212, 176, 0.08)",
         }}
       >
         <div
@@ -97,7 +123,7 @@ export default function LandingPage() {
             fontSize: "1.15rem",
           }}
         >
-          <span style={{ fontSize: "1.5rem" }}>🏥</span>
+          <span style={{ fontSize: "1.4rem", color: "#1bd1ab", display: "flex" }}><LuHospital /></span>
           <span className="gradient-text">UPRMS</span>
         </div>
         <div style={{ display: "flex", gap: 12 }}>
@@ -133,20 +159,20 @@ export default function LandingPage() {
             gap: 8,
             padding: "6px 18px",
             marginBottom: 32,
-            fontSize: "0.8rem",
-            fontWeight: 500,
-            color: "#a78bfa",
-            letterSpacing: "0.05em",
+            fontSize: "0.78rem",
+            fontWeight: 600,
+            color: "var(--accent-teal)",
+            letterSpacing: "0.08em",
           }}
         >
           <span
             style={{
-              width: 8,
-              height: 8,
+              width: 7,
+              height: 7,
               borderRadius: "50%",
-              background: "#8b5cf6",
+              background: "var(--accent-teal)",
               display: "inline-block",
-              boxShadow: "0 0 8px #8b5cf6",
+              boxShadow: "0 0 10px var(--accent-teal)",
             }}
           />
           AI-POWERED • PATIENT-FIRST • SECURE
@@ -161,6 +187,7 @@ export default function LandingPage() {
             lineHeight: 1.1,
             maxWidth: 820,
             marginBottom: 24,
+            color: "var(--text-primary)",
           }}
         >
           Your Medical Records,{" "}
@@ -171,10 +198,10 @@ export default function LandingPage() {
         <p
           className="animate-fade-up-delay-2"
           style={{
-            fontSize: "clamp(1rem, 2vw, 1.25rem)",
+            fontSize: "clamp(1rem, 2vw, 1.2rem)",
             color: "var(--text-secondary)",
-            maxWidth: 600,
-            lineHeight: 1.75,
+            maxWidth: 580,
+            lineHeight: 1.8,
             marginBottom: 48,
           }}
         >
@@ -189,7 +216,7 @@ export default function LandingPage() {
           style={{ display: "flex", gap: 16, flexWrap: "wrap", justifyContent: "center" }}
         >
           <Link href="/register" className="btn-primary" style={{ padding: "15px 36px", fontSize: "1rem" }}>
-            <span>Get Started Free →</span>
+            <span style={{ display: "flex", alignItems: "center", gap: 8 }}>Get Started Free <LuArrowRight /></span>
           </Link>
           <Link href="/login" className="btn-outline" style={{ padding: "15px 36px", fontSize: "1rem" }}>
             <span>Sign In</span>
@@ -201,7 +228,7 @@ export default function LandingPage() {
           className="animate-fade-up-delay-4"
           style={{
             display: "flex",
-            gap: 48,
+            gap: 56,
             marginTop: 80,
             flexWrap: "wrap",
             justifyContent: "center",
@@ -220,7 +247,12 @@ export default function LandingPage() {
                 {n}
               </div>
               <div
-                style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginTop: 4 }}
+                style={{
+                  fontSize: "0.82rem",
+                  color: "var(--text-secondary)",
+                  marginTop: 6,
+                  letterSpacing: "0.02em",
+                }}
               >
                 {label}
               </div>
@@ -241,7 +273,12 @@ export default function LandingPage() {
       >
         <div style={{ textAlign: "center", marginBottom: 64 }}>
           <h2
-            style={{ fontSize: "clamp(1.8rem, 3vw, 2.5rem)", fontWeight: 800, marginBottom: 16 }}
+            style={{
+              fontSize: "clamp(1.8rem, 3vw, 2.5rem)",
+              fontWeight: 800,
+              marginBottom: 16,
+              color: "var(--text-primary)",
+            }}
           >
             Everything you need,{" "}
             <span className="gradient-text">nothing you don't</span>
@@ -255,34 +292,47 @@ export default function LandingPage() {
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
-            gap: 24,
+            gap: 20,
           }}
         >
           {features.map((f, i) => (
             <div
               key={f.title}
-              className="glass"
               style={{
                 padding: "32px 28px",
-                transition: "transform 0.25s, box-shadow 0.25s",
+                background: f.accent,
+                border: `1px solid ${f.border}`,
+                borderRadius: 16,
+                backdropFilter: "blur(16px)",
+                transition: "transform 0.25s, box-shadow 0.25s, border-color 0.25s",
                 cursor: "default",
                 animationDelay: `${i * 0.08}s`,
               }}
               onMouseEnter={(e) => {
                 (e.currentTarget as HTMLElement).style.transform = "translateY(-6px)";
                 (e.currentTarget as HTMLElement).style.boxShadow =
-                  "0 20px 60px rgba(139,92,246,0.2)";
+                  "0 20px 50px rgba(15, 212, 176, 0.14)";
+                (e.currentTarget as HTMLElement).style.borderColor =
+                  "rgba(15, 212, 176, 0.4)";
               }}
               onMouseLeave={(e) => {
                 (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
                 (e.currentTarget as HTMLElement).style.boxShadow = "none";
+                (e.currentTarget as HTMLElement).style.borderColor = f.border;
               }}
             >
               <div style={{ fontSize: "2rem", marginBottom: 16 }}>{f.icon}</div>
-              <h3 style={{ fontWeight: 700, fontSize: "1.05rem", marginBottom: 10 }}>
+              <h3
+                style={{
+                  fontWeight: 700,
+                  fontSize: "1.05rem",
+                  marginBottom: 10,
+                  color: "var(--text-primary)",
+                }}
+              >
                 {f.title}
               </h3>
-              <p style={{ color: "var(--text-secondary)", fontSize: "0.9rem", lineHeight: 1.7 }}>
+              <p style={{ color: "var(--text-secondary)", fontSize: "0.9rem", lineHeight: 1.75 }}>
                 {f.desc}
               </p>
             </div>
@@ -300,15 +350,24 @@ export default function LandingPage() {
         }}
       >
         <div
-          className="glass-strong glow-violet"
+          className="glow-teal"
           style={{
             maxWidth: 700,
             margin: "0 auto",
-            padding: "60px 40px",
+            padding: "64px 48px",
+            background: "rgba(15, 212, 176, 0.05)",
+            border: "1px solid rgba(15, 212, 176, 0.18)",
+            borderRadius: 24,
+            backdropFilter: "blur(24px)",
           }}
         >
           <h2
-            style={{ fontSize: "clamp(1.6rem, 3vw, 2.2rem)", fontWeight: 800, marginBottom: 16 }}
+            style={{
+              fontSize: "clamp(1.6rem, 3vw, 2.2rem)",
+              fontWeight: 800,
+              marginBottom: 16,
+              color: "var(--text-primary)",
+            }}
           >
             Ready to take control of your health data?
           </h2>
@@ -317,14 +376,14 @@ export default function LandingPage() {
               color: "var(--text-secondary)",
               marginBottom: 36,
               fontSize: "1rem",
-              lineHeight: 1.7,
+              lineHeight: 1.75,
             }}
           >
             Join patients, hospitals, and doctors already using UPRMS to
             manage medical records securely.
           </p>
           <Link href="/register" className="btn-primary" style={{ padding: "15px 40px", fontSize: "1rem" }}>
-            <span>Create Your Account →</span>
+            <span style={{ display: "flex", alignItems: "center", gap: 8 }}>Create Your Account <LuArrowRight /></span>
           </Link>
         </div>
       </section>
@@ -332,8 +391,8 @@ export default function LandingPage() {
       {/* ── Footer ────────────────────────────────────── */}
       <footer
         style={{
-          borderTop: "1px solid var(--border)",
-          padding: "28px 32px",
+          borderTop: "1px solid rgba(15, 212, 176, 0.08)",
+          padding: "28px 40px",
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
@@ -345,8 +404,8 @@ export default function LandingPage() {
           zIndex: 1,
         }}
       >
-        <div style={{ fontWeight: 600 }}>
-          🏥 <span className="gradient-text">UPRMS</span> — Unified Patient Record Management System
+        <div style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
+          <LuHospital color="#1bd1ab" /> <span className="gradient-text">UPRMS</span> — Unified Patient Record Management System
         </div>
         <div>© 2026 UPRMS. Built for the Capstone Project.</div>
       </footer>

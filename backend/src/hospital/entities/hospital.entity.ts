@@ -24,4 +24,7 @@ export class Hospital {
 
     @Column({ unique: true })
     registrationNumber: string;
+
+    @Column({ unique: true, nullable: true })
+    slug: string;
 }

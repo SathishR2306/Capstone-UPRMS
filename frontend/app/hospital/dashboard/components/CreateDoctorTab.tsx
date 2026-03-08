@@ -17,8 +17,6 @@ interface CreatedDoctor {
 const ROLE_OPTIONS = [
     { value: "JUNIOR_DOCTOR", label: "Junior Doctor" },
     { value: "SENIOR_CONSULTANT", label: "Senior Consultant" },
-    { value: "RESIDENT", label: "Resident" },
-    { value: "READ_ONLY", label: "Read-Only" },
 ];
 
 const inputStyle: React.CSSProperties = {
@@ -54,7 +52,6 @@ export default function CreateDoctorTab() {
         department: "",
         role: "JUNIOR_DOCTOR",
         licenseNumber: "",
-        licenseExpiry: "",
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
@@ -84,7 +81,7 @@ export default function CreateDoctorTab() {
             setForm({
                 fullName: "", phone: "", aadhaarNumber: "", password: "",
                 specialization: "", department: "", role: "JUNIOR_DOCTOR",
-                licenseNumber: "", licenseExpiry: "",
+                licenseNumber: "",
             });
         } catch (err: any) {
             setError(err?.response?.data?.message || "Failed to create doctor. Please try again.");
@@ -109,9 +106,9 @@ export default function CreateDoctorTab() {
                 <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
                     <div style={{
                         width: 44, height: 44, borderRadius: 12,
-                        background: "linear-gradient(135deg,#f472b6,#a78bfa)",
+                        background: "linear-gradient(135deg,#3b82f6,#8b5cf6)",
                         display: "flex", alignItems: "center", justifyContent: "center",
-                        fontSize: "1.3rem", boxShadow: "0 4px 16px rgba(244,114,182,0.3)",
+                        fontSize: "1.3rem", boxShadow: "0 4px 16px rgba(59,130,246,0.3)",
                     }}>👨‍⚕️</div>
                     <div>
                         <h2 style={{ color: "#f1f5f9", fontWeight: 800, fontSize: "1.2rem", margin: 0 }}>
@@ -124,11 +121,11 @@ export default function CreateDoctorTab() {
                 </div>
                 <div style={{
                     padding: "10px 16px",
-                    background: "rgba(244,114,182,0.07)",
-                    border: "1px solid rgba(244,114,182,0.2)",
+                    background: "rgba(59,130,246,0.07)",
+                    border: "1px solid rgba(59,130,246,0.2)",
                     borderRadius: 10,
                     fontSize: "0.81rem",
-                    color: "#f9a8d4",
+                    color: "#93c5fd",
                     lineHeight: 1.6,
                 }}>
                     ℹ️ The doctor can log in immediately with the credentials you set below. You can manage roles and assign patients from the <strong>Doctor Management</strong> tab.
@@ -180,7 +177,7 @@ export default function CreateDoctorTab() {
                             onClick={resetForm}
                             style={{
                                 padding: "10px 22px", borderRadius: 8, border: "none",
-                                background: "linear-gradient(135deg,#f472b6,#a78bfa)",
+                                background: "linear-gradient(135deg,#3b82f6,#8b5cf6)",
                                 color: "#fff", fontSize: "0.88rem", fontWeight: 700,
                                 cursor: "pointer",
                             }}
@@ -252,12 +249,6 @@ export default function CreateDoctorTab() {
                             <label style={labelStyle}>License Number</label>
                             <input type="text" value={form.licenseNumber} onChange={e => set("licenseNumber", e.target.value)} placeholder="MCI/State license ID" style={inputStyle} />
                         </div>
-
-                        {/* License Expiry */}
-                        <div>
-                            <label style={labelStyle}>License Expiry Date</label>
-                            <input type="date" value={form.licenseExpiry} onChange={e => set("licenseExpiry", e.target.value)} style={inputStyle} />
-                        </div>
                     </div>
 
                     {error && (
@@ -272,11 +263,11 @@ export default function CreateDoctorTab() {
                             disabled={loading}
                             style={{
                                 padding: "11px 32px", borderRadius: 10, border: "none",
-                                background: loading ? "rgba(244,114,182,0.3)" : "linear-gradient(135deg,#f472b6,#a78bfa)",
+                                background: loading ? "rgba(59,130,246,0.3)" : "linear-gradient(135deg,#3b82f6,#8b5cf6)",
                                 color: "#fff", fontSize: "0.9rem", fontWeight: 700,
                                 cursor: loading ? "not-allowed" : "pointer",
                                 transition: "all 0.2s",
-                                boxShadow: loading ? "none" : "0 4px 16px rgba(244,114,182,0.3)",
+                                boxShadow: loading ? "none" : "0 4px 16px rgba(59,130,246,0.3)",
                             }}
                         >
                             {loading ? "Creating Account…" : "Create Doctor Account"}

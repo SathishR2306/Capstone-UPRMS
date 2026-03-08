@@ -52,7 +52,6 @@ export class DoctorService {
             fullName: doctor.fullName,
             specialization: doctor.specialization,
             licenseNumber: doctor.licenseNumber,
-            licenseExpiry: doctor.licenseExpiry,
             department: doctor.department,
             role: doctor.role,
             status: doctor.status,
@@ -106,25 +105,10 @@ export class DoctorService {
         const doctor = await this.doctorRepo.findOne({ where: { userId } });
         if (!doctor) throw new NotFoundException('Doctor profile not found');
 
-        if (!doctor.licenseExpiry) {
-            return { status: 'NO_EXPIRY_SET', daysRemaining: null, licenseNumber: doctor.licenseNumber };
-        }
-
-        const today = new Date();
-        const expiry = new Date(doctor.licenseExpiry);
-        const diffMs = expiry.getTime() - today.getTime();
-        const daysRemaining = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-
-        let status: string;
-        if (daysRemaining < 0) status = 'EXPIRED';
-        else if (daysRemaining <= 30) status = 'EXPIRING_SOON';
-        else status = 'VALID';
-
         return {
-            status,
-            daysRemaining,
+            status: 'VALID',
+            daysRemaining: null,
             licenseNumber: doctor.licenseNumber,
-            licenseExpiry: doctor.licenseExpiry,
         };
     }
 

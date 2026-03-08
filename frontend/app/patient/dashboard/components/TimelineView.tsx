@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import api from "@/utils/api";
+import { LuCalendar, LuPaperclip, LuActivity, LuPill, LuDownload } from "react-icons/lu";
 
 interface Hospital { id: number; hospitalName: string }
 interface MedicalRecord {
@@ -78,7 +79,7 @@ export default function TimelineView({ records }: Props) {
     return (
         <div>
             {/* Filters */}
-            <div className="glass-strong" style={{ display: "flex", gap: 16, marginBottom: 32, flexWrap: "wrap", alignItems: "center", padding: "20px 24px", borderRadius: 12, background: "rgba(15, 23, 42, 0.4)" }}>
+            <div className="glass-strong" style={{ display: "flex", gap: 16, marginBottom: 32, flexWrap: "wrap", alignItems: "center", padding: "20px 24px", borderRadius: 12, background: "rgba(0, 0, 0, 1)" }}>
                 <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: 700, letterSpacing: "0.1em", marginRight: 8 }}>FILTERS</span>
                 <select style={selectStyle} value={filterYear} onChange={e => setFilterYear(e.target.value)}>
                     <option value="all">All Years</option>
@@ -100,15 +101,15 @@ export default function TimelineView({ records }: Props) {
             </div>
 
             {filtered.length === 0 ? (
-                <div className="glass" style={{ padding: "64px", textAlign: "center", color: "var(--text-secondary)", border: "1px dashed var(--border)", borderRadius: 16 }}>
+                <div className="glass" style={{ padding: "64px", textAlign: "center", color: "var(--text-secondary)", border: "1px dashed var(--border)", borderRadius: 16, background: "#000000ff" }}>
                     <div style={{ marginBottom: 16 }}>
-                        <svg width="48" height="48" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: "0 auto", color: "#475569" }}><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
+                        <LuCalendar size={48} style={{ margin: "0 auto", color: "#475569" }} />
                     </div>
                     <p style={{ margin: 0, fontWeight: 500, fontSize: "1.05rem" }}>No records match your filters.</p>
                 </div>
             ) : (
-                <div style={{ position: "relative", paddingLeft: 24 }}>
-                    <div style={{ position: "absolute", left: 11, top: 12, bottom: 12, width: 2, background: "rgba(255,255,255,0.1)", zIndex: 0 }} />
+                <div style={{ position: "relative", paddingLeft: 24,background:"#000000ff",borderRadius:"10px"}}>
+                    <div style={{ position: "absolute", left: 0, top: 12, bottom: 12, width: 2, background: "rgba(255,255,255,0.1)", zIndex: 0 }} />
                     <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
                         {filtered.map(rec => {
                             const sev = getSeverity(rec.diagnosis);
@@ -138,7 +139,7 @@ export default function TimelineView({ records }: Props) {
                                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 16 }}>
                                             <div>
                                                 <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", fontWeight: 700, letterSpacing: "0.05em", marginBottom: 6, display: "flex", alignItems: "center", gap: 8 }}>
-                                                    <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
+                                                    <LuCalendar size={14} />
                                                     {formatDate(rec.visitDate)}
                                                 </div>
                                                 <div style={{ fontWeight: 700, fontSize: "1.15rem", color: "#fff" }}>
@@ -148,7 +149,7 @@ export default function TimelineView({ records }: Props) {
                                             <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
                                                 {rec.reportFileURL && (
                                                     <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.75rem", color: "#94a3b8", background: "rgba(255,255,255,0.05)", padding: "6px 10px", borderRadius: 6, fontWeight: 600, border: "1px solid rgba(255,255,255,0.1)" }}>
-                                                        <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" /></svg>
+                                                        <LuPaperclip size={14} />
                                                         File Att.
                                                     </span>
                                                 )}
@@ -171,14 +172,14 @@ export default function TimelineView({ records }: Props) {
                                             <div style={{ marginTop: 24, borderTop: "1px solid var(--border)", paddingTop: 24, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 32 }}>
                                                 <div>
                                                     <div style={{ fontSize: "0.8rem", fontWeight: 700, color: "var(--text-secondary)", letterSpacing: "0.05em", marginBottom: 8, textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8 }}>
-                                                        <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "#60a5fa" }}><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></svg>
+                                                        <LuActivity size={16} style={{ color: "#60a5fa" }} />
                                                         Diagnosis
                                                     </div>
                                                     <div style={{ fontSize: "0.95rem", color: "#e2e8f0", lineHeight: 1.6, whiteSpace: "pre-wrap", background: "rgba(0,0,0,0.2)", padding: "16px", borderRadius: 8 }}>{rec.diagnosis}</div>
                                                 </div>
                                                 <div>
                                                     <div style={{ fontSize: "0.8rem", fontWeight: 700, color: "var(--text-secondary)", letterSpacing: "0.05em", marginBottom: 8, textTransform: "uppercase", display: "flex", alignItems: "center", gap: 8 }}>
-                                                        <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "#34d399" }}><path d="M10.5 20.5 4 14l6.5-6.5a7.78 7.78 0 0 1 11 11 7.78 7.78 0 0 1-11 0z" /><line x1="14" y1="10" x2="10" y2="14" /></svg>
+                                                        <LuPill size={16} style={{ color: "#34d399" }} />
                                                         Prescription
                                                     </div>
                                                     <div style={{ fontSize: "0.95rem", color: "#e2e8f0", lineHeight: 1.6, whiteSpace: "pre-wrap", background: "rgba(0,0,0,0.2)", padding: "16px", borderRadius: 8 }}>{rec.prescription}</div>
@@ -188,7 +189,7 @@ export default function TimelineView({ records }: Props) {
                                                         <button onClick={e => handleDownload(rec.reportFileURL!, e)}
                                                             className="btn-outline"
                                                             style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "10px 20px", fontSize: "0.9rem", fontWeight: 600, border: "1px solid var(--border)", background: "transparent", color: "#fff", borderRadius: 8, cursor: "pointer" }}>
-                                                            <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+                                                            <LuDownload size={16} />
                                                             Download Attached Report
                                                         </button>
                                                     </div>

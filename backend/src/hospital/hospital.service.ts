@@ -18,7 +18,7 @@ export class HospitalService {
 
     async findAll() {
         return this.hospitalRepo.find({
-            select: ['id', 'hospitalName', 'registrationNumber'],
+            select: ['id', 'hospitalName', 'registrationNumber', 'slug'],
             order: { hospitalName: 'ASC' },
         });
     }
@@ -34,6 +34,7 @@ export class HospitalService {
             id: hospital.id,
             hospitalName: hospital.hospitalName,
             registrationNumber: hospital.registrationNumber,
+            slug: hospital.slug,
             phone: hospital.user.phone,
         };
     }
@@ -121,7 +122,6 @@ export class HospitalService {
             department: dto.department,
             role: dto.role, // JUNIOR_DOCTOR, etc.
             licenseNumber: dto.licenseNumber,
-            licenseExpiry: dto.licenseExpiry,
         });
 
         await this.entityManager.save(Doctor, doctor);

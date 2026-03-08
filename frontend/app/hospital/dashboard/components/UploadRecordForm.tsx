@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import api from "@/utils/api";
+import { LuUserPlus, LuFileUp } from "react-icons/lu";
 
 type ApprovedPatient = {
     patientId: number;
@@ -70,11 +71,11 @@ export default function UploadRecordForm({ onUploadSuccess }: { onUploadSuccess:
     }
 
     return (
-        <div className="glass-strong" style={{ padding: "32px", maxWidth: 700, background: "rgba(15, 23, 42, 0.4)" }}>
+        <div className="glass-strong" style={{ padding: "32px", width: "100%" }}>
             {patients.length === 0 ? (
                 <div style={{ textAlign: "center", padding: "40px 20px" }}>
                     <div style={{ width: 64, height: 64, background: "rgba(255,255,255,0.05)", color: "var(--text-secondary)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
-                        <svg width="32" height="32" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="8.5" cy="7" r="4" /><line x1="20" y1="8" x2="20" y2="14" /><line x1="23" y1="11" x2="17" y2="11" /></svg>
+                        <LuUserPlus size={32} />
                     </div>
                     <h3 style={{ fontSize: "1.1rem", color: "#fff", marginBottom: 8 }}>No Authorized Patients Found</h3>
                     <p style={{ color: "var(--text-secondary)", fontSize: "0.95rem" }}>You cannot upload records because no patient has granted you active access. Please search for a patient and request access first.</p>
@@ -88,7 +89,7 @@ export default function UploadRecordForm({ onUploadSuccess }: { onUploadSuccess:
                             value={patientId}
                             onChange={e => setPatientId(e.target.value)}
                             className="input-field"
-                            style={{ padding: "12px", cursor: "pointer", background: "rgba(255, 255, 255, 0.05)" }}
+                            style={{ padding: "12px", cursor: "pointer", background: "rgba(255, 255, 255, 0.05)", color: "#ffffff" }}
                             required
                         >
                             <option value="" disabled>-- Select a patient --</option>
@@ -156,7 +157,8 @@ export default function UploadRecordForm({ onUploadSuccess }: { onUploadSuccess:
                     )}
 
                     <div style={{ marginTop: 12, paddingTop: 20, borderTop: "1px solid var(--border)", display: "flex", justifyContent: "flex-end" }}>
-                        <button type="submit" disabled={submitting} className="btn-primary" style={{ padding: "12px 24px", fontSize: "1rem" }}>
+                        <button type="submit" disabled={submitting} className="btn-primary" style={{ padding: "12px 24px", fontSize: "1rem", display: "flex", alignItems: "center", gap: 10 }}>
+                            <LuFileUp size={18} />
                             {submitting ? "Uploading..." : "Submit Record"}
                         </button>
                     </div>

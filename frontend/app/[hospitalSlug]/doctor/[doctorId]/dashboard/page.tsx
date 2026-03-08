@@ -1,18 +1,35 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { useRouter } from "next/navigation";
-import api from "../../../utils/api";
+import { useRouter, useParams } from "next/navigation";
+import api from "../../../../../utils/api";
 
-import DoctorProfileCard from "./components/DoctorProfileCard";
-import PatientSearchDoctor from "./components/PatientSearchDoctor";
-import DoctorRecordViewer from "./components/DoctorRecordViewer";
-import DoctorAISummary from "./components/DoctorAISummary";
-import SmartTimeline from "./components/SmartTimeline";
-import DoctorActivityLog from "./components/DoctorActivityLog";
-import DoctorNotifications from "./components/DoctorNotifications";
-import DoctorSchedule from "./components/DoctorSchedule";
-import DoctorAssignedPatients from "./components/DoctorAssignedPatients";
+import DoctorProfileCard from "../../../../doctor/dashboard/components/DoctorProfileCard";
+import PatientSearchDoctor from "../../../../doctor/dashboard/components/PatientSearchDoctor";
+import DoctorRecordViewer from "../../../../doctor/dashboard/components/DoctorRecordViewer";
+import DoctorAISummary from "../../../../doctor/dashboard/components/DoctorAISummary";
+import SmartTimeline from "../../../../doctor/dashboard/components/SmartTimeline";
+import DoctorActivityLog from "../../../../doctor/dashboard/components/DoctorActivityLog";
+import DoctorNotifications from "../../../../doctor/dashboard/components/DoctorNotifications";
+import DoctorSchedule from "../../../../doctor/dashboard/components/DoctorSchedule";
+import DoctorAssignedPatients from "../../../../doctor/dashboard/components/DoctorAssignedPatients";
+
+import { 
+    LuUser, 
+    LuSearch, 
+    LuUsers, 
+    LuFolder, 
+    LuZap, 
+    LuFileClock, 
+    LuCalendarDays, 
+    LuActivity, 
+    LuBell,
+    LuLogOut,
+    LuClock,
+    LuAward,
+    LuShield,
+    LuSparkles
+} from "react-icons/lu";
 
 type Tab =
     | "overview"
@@ -33,39 +50,39 @@ const INACTIVITY_MS = 30 * 60 * 1000;
 const TABS: { id: Tab; label: string; icon: React.ReactElement; color: string }[] = [
     {
         id: "overview", label: "My Profile", color: "#3b82f6",
-        icon: <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>,
+        icon: <LuUser size={18} />,
     },
     {
         id: "search", label: "Patient Search", color: "#8b5cf6",
-        icon: <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>,
+        icon: <LuSearch size={18} />,
     },
     {
         id: "assigned", label: "Assigned Patients", color: "#f472b6",
-        icon: <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" /></svg>,
+        icon: <LuUsers size={18} />,
     },
     {
         id: "records", label: "Record Viewer", color: "#22d3ee",
-        icon: <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></svg>,
+        icon: <LuFolder size={18} />,
     },
     {
-        id: "ai", label: "AI Summary", color: "#a78bfa",
-        icon: <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>,
+        id: "ai", label: "AI Health Assistant", color: "#a78bfa",
+        icon: <LuSparkles size={18} />,
     },
     {
         id: "timeline", label: "Smart Timeline", color: "#1ABC9C",
-        icon: <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></svg>,
+        icon: <LuFileClock size={18} />,
     },
     {
         id: "schedule", label: "Schedule", color: "#10b981",
-        icon: <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>,
+        icon: <LuCalendarDays size={18} />,
     },
     {
         id: "activity", label: "Activity Log", color: "#9ca3af",
-        icon: <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>,
+        icon: <LuActivity size={18} />,
     },
     {
         id: "notifications", label: "Notifications", color: "#fb923c",
-        icon: <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>,
+        icon: <LuBell size={18} />,
     },
 ];
 
@@ -74,7 +91,7 @@ const TAB_META: Record<Tab, { title: string; subtitle: string }> = {
     search: { title: "Patient Search", subtitle: "Search patients by name, phone, Aadhaar or ID" },
     assigned: { title: "Assigned Patients", subtitle: "Patients assigned to you by your hospital admin" },
     records: { title: "Record Viewer", subtitle: "View complete medical history for patients who have granted access" },
-    ai: { title: "AI Medical Summary", subtitle: "Gemini AI clinical overview — chronic conditions, risk indicators, medication patterns" },
+    ai: { title: "AI Health Assistant", subtitle: "Gemini AI clinical overview — chronic conditions, risk indicators, and medication patterns" },
     timeline: { title: "Smart Timeline", subtitle: "Year-wise health history with surgery, critical and recurring illness markers" },
     schedule: { title: "Schedule & Availability", subtitle: "Set working hours, mark leave days, and view your real-time availability" },
     activity: { title: "Activity Log", subtitle: "Full audit trail of your patient record access and downloads" },
@@ -83,6 +100,7 @@ const TAB_META: Record<Tab, { title: string; subtitle: string }> = {
 
 export default function DoctorDashboard() {
     const router = useRouter();
+    const params = useParams();
     const [activeTab, setActiveTab] = useState<Tab>("overview");
     const [profile, setProfile] = useState<any>(null);
     const [licenseStatus, setLicenseStatus] = useState<LicenseStatus | null>(null);
@@ -113,7 +131,14 @@ export default function DoctorDashboard() {
     /* ── role guard + profile load ─────────────────── */
     const fetchProfile = useCallback(async () => {
         const role = localStorage.getItem("role");
-        if (role !== "DOCTOR") { router.push("/login"); return; }
+        const storedSlug = localStorage.getItem("hospitalSlug");
+        
+        // Security check
+        if (role !== "DOCTOR" || storedSlug !== params.hospitalSlug) {
+            router.push("/login");
+            return;
+        }
+
         try {
             const [profileRes, licenseRes] = await Promise.allSettled([
                 api.get("/doctors/profile"),
@@ -126,7 +151,7 @@ export default function DoctorDashboard() {
         } finally {
             setLoading(false);
         }
-    }, [router]);
+    }, [router, params.hospitalSlug]);
 
     useEffect(() => { fetchProfile(); }, [fetchProfile]);
 
@@ -138,13 +163,13 @@ export default function DoctorDashboard() {
     };
 
     /* ── License warning config ────────────────────── */
-    const licenseWarning = false;
+    const licenseWarning = licenseStatus && (licenseStatus.status === "EXPIRING_SOON" || licenseStatus.status === "EXPIRED");
     const licenseWarnConfig = null;
 
     if (loading) return (
         <div style={{ minHeight: "100vh", background: "#F4F7FE", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
             <div style={{ width: 44, height: 44, borderRadius: "50%", background: "linear-gradient(135deg,#10b981,#3b82f6)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 4 }}>
-                <svg width="22" height="22" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+                <LuUser size={22} color="white" />
             </div>
             <div className="spinner" />
             <p style={{ color: "#5A6A7A", fontWeight: 500, fontSize: "0.9rem" }}>Loading Doctor Portal…</p>
@@ -215,7 +240,7 @@ export default function DoctorDashboard() {
                         width: "100%", marginTop: 8, borderColor: "rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.75)",
                         fontSize: "0.82rem", padding: "9px 14px", justifyContent: "flex-start", gap: 8
                     }}>
-                        <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" /></svg>
+                        <LuLogOut size={16} />
                         Sign Out
                     </button>
                 </div>
@@ -238,7 +263,7 @@ export default function DoctorDashboard() {
                             </div>
                         )}
                         <button className="topbar-icon-btn">
-                            <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>
+                            <LuBell size={18} />
                             <span className="notification-dot" />
                         </button>
                         <div className="topbar-avatar" style={{ background: "linear-gradient(135deg,#10b981,#3b82f6)" }} title={profile?.fullName}>{initials}</div>
@@ -252,7 +277,7 @@ export default function DoctorDashboard() {
                         <div className="kpi-card">
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                                 <div className="kpi-icon-wrap" style={{ background: "rgba(16,185,129,0.12)" }}>
-                                    <svg width="20" height="20" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>
+                                    <LuUser size={20} color="#10b981" />
                                 </div>
                                 <span className="kpi-trend up">Active</span>
                             </div>
@@ -263,7 +288,7 @@ export default function DoctorDashboard() {
                         <div className="kpi-card">
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                                 <div className="kpi-icon-wrap" style={{ background: "rgba(59,130,246,0.12)" }}>
-                                    <svg width="20" height="20" fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
+                                    <LuClock size={20} color="#3b82f6" />
                                 </div>
                                 <span className="kpi-trend neutral">{profile?.workingHoursStart ?? "—"}</span>
                             </div>
@@ -274,7 +299,7 @@ export default function DoctorDashboard() {
                         <div className="kpi-card">
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                                 <div className="kpi-icon-wrap" style={{ background: "rgba(245,158,11,0.12)" }}>
-                                    <svg width="20" height="20" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg>
+                                    <LuAward size={20} color="#f59e0b" />
                                 </div>
                                 <span className="kpi-trend up">Verified</span>
                             </div>
@@ -285,7 +310,7 @@ export default function DoctorDashboard() {
                         <div className="kpi-card">
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                                 <div className="kpi-icon-wrap" style={{ background: "rgba(244,114,182,0.12)" }}>
-                                    <svg width="20" height="20" fill="none" stroke="#f472b6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /></svg>
+                                    <LuUsers size={20} color="#f472b6" />
                                 </div>
                                 <span className="kpi-trend up">Assigned</span>
                             </div>

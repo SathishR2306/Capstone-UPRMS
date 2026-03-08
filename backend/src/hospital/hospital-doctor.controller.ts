@@ -36,7 +36,6 @@ export class HospitalDoctorController {
             department?: string;
             role?: DoctorRole;
             licenseNumber?: string;
-            licenseExpiry?: string;
         },
     ) {
         return this.hospitalDoctorService.registerDoctor(req.user.userId, body);
@@ -61,7 +60,6 @@ export class HospitalDoctorController {
             role?: DoctorRole;
             status?: DoctorStatus;
             licenseNumber?: string;
-            licenseExpiry?: string;
             workingHoursStart?: string;
             workingHoursEnd?: string;
         },
@@ -107,5 +105,15 @@ export class HospitalDoctorController {
     @Get(':id/patients')
     getDoctorPatients(@Param('id', ParseIntPipe) doctorId: number, @Request() req) {
         return this.hospitalDoctorService.getDoctorPatients(req.user.userId, doctorId);
+    }
+
+    // DELETE /hospitals/doctors/:id/unassign-patient/:patientId
+    @Delete(':id/unassign-patient/:patientId')
+    unassignPatient(
+        @Param('id', ParseIntPipe) doctorId: number,
+        @Param('patientId', ParseIntPipe) patientId: number,
+        @Request() req,
+    ) {
+        return this.hospitalDoctorService.unassignPatient(req.user.userId, doctorId, patientId);
     }
 }

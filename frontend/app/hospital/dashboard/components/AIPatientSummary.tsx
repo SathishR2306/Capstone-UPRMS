@@ -101,7 +101,7 @@ export default function AIPatientSummary() {
                     value={selectedPatient}
                     onChange={e => setSelectedPatient(e.target.value)}
                     className="input-field"
-                    style={{ maxWidth: 400, padding: "12px", cursor: "pointer", background: "rgba(255, 255, 255, 0.05)" }}
+                    style={{ maxWidth: 400, padding: "12px", cursor: "pointer", color: "#ffffff", background: "rgba(255, 255, 255, 0.05)" }}
                 >
                     <option value="" disabled>-- Choose Authorized Patient --</option>
                     {patients.map(p => (
