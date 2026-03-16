@@ -75,13 +75,13 @@ export default function DocumentVault({ records }: Props) {
     }
 
     return (
-        <div style={{ display: "flex", flexDirection: "column", gap: 32,backgroundColor:"#000000ff",padding:"10px",borderRadius:"20px" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
             {/* Search + Filter */}
             <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
                 <div style={{ flex: 1, minWidth: 240, position: "relative" }}>
-                    <svg width="18" height="18" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)" }}><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+                    <svg width="18" height="18" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)" }}><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
                     <input placeholder="Search by diagnosis or hospital…" value={search} onChange={e => setSearch(e.target.value)}
-                        className="input-field" style={{ width: "100%", padding: "12px 16px 12px 48px", borderRadius: 12,background:"#000000", fontSize: "0.95rem" }} />
+                        className="input-field" style={{ width: "100%", padding: "12px 16px 12px 48px", borderRadius: 12, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", color: "#e2e8f0", fontSize: "0.95rem", outline: "none", boxSizing: "border-box" }} />
                 </div>
             </div>
 
@@ -90,15 +90,15 @@ export default function DocumentVault({ records }: Props) {
                 {(["all", "lab", "scan", "prescription", "other"] as Category[]).map(cat => (
                     <button key={cat} onClick={() => setCategory(cat)} style={{
                         padding: "10px 20px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: "0.9rem", fontWeight: 600, transition: "all 0.2s ease",
-                        background: category === cat ? "rgba(59, 130, 246, 0.2)" : "transparent",
+                        background: category === cat ? "rgba(139, 92, 246, 0.2)" : "transparent",
                         color: category === cat ? "#fff" : "var(--text-secondary)",
-                        boxShadow: category === cat ? "inset 0 0 12px rgba(59, 130, 246, 0.1)" : "none",
+                        boxShadow: category === cat ? "inset 0 0 12px rgba(139, 92, 246, 0.1)" : "none",
                     }}
                         onMouseOver={e => { if (category !== cat) { e.currentTarget.style.color = "#fff"; e.currentTarget.style.background = "rgba(255,255,255,0.05)"; } }}
                         onMouseOut={e => { if (category !== cat) { e.currentTarget.style.color = "var(--text-secondary)"; e.currentTarget.style.background = "transparent"; } }}
                     >
                         {cat === "all" ? "All Documents" : cat.charAt(0).toUpperCase() + cat.slice(1)}
-                        <span style={{ marginLeft: 10, opacity: category === cat ? 1 : 0.8, background: category === cat ? "rgba(59, 130, 246, 0.3)" : "rgba(255,255,255,0.1)", color: category === cat ? "#93c5fd" : "var(--text-secondary)", padding: "2px 8px", borderRadius: 12, fontSize: "0.75rem", fontWeight: 700 }}>
+                        <span style={{ marginLeft: 10, opacity: category === cat ? 1 : 0.8, background: category === cat ? "rgba(139, 92, 246, 0.3)" : "rgba(255,255,255,0.1)", color: category === cat ? "#a78bfa" : "var(--text-secondary)", padding: "2px 8px", borderRadius: 12, fontSize: "0.75rem", fontWeight: 700 }}>
                             {counts[cat] || 0}
                         </span>
                     </button>
@@ -106,8 +106,8 @@ export default function DocumentVault({ records }: Props) {
             </div>
 
             {filtered.length === 0 ? (
-                <div className="glass" style={{ padding: "80px", textAlign: "center", color: "var(--text-secondary)", borderRadius: 16, border: "1px dashed var(--border)" }}>
-                    <svg width="48" height="48" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: "0 auto 16px", color: "#475569" }}><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
+                <div className="glass" style={{ padding: "80px", textAlign: "center", color: "var(--text-secondary)", borderRadius: 16, border: "1px dashed rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.02)" }}>
+                    <svg width="48" height="48" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: "0 auto 16px", color: "#64748b" }}><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
                     <p style={{ margin: 0, fontWeight: 500, fontSize: "1.1rem" }}>{search ? "No documents match your search." : "No documents in this category."}</p>
                 </div>
             ) : (
@@ -121,9 +121,9 @@ export default function DocumentVault({ records }: Props) {
                         const borderBadge = rec.category === "lab" ? "rgba(13, 148, 136, 0.3)" : rec.category === "scan" ? "rgba(124, 58, 237, 0.3)" : rec.category === "prescription" ? "rgba(22, 163, 74, 0.3)" : "rgba(37, 99, 235, 0.3)";
 
                         return (
-                            <div key={rec.id} className="glass" style={{ padding: "24px", display: "flex", alignItems: "center", gap: 24, flexWrap: "wrap", borderRadius: 16, transition: "transform 0.2s ease, background 0.2s ease" }}
-                                onMouseOver={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }}
-                                onMouseOut={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.background = "rgba(255,255,255,0.02)"; }}>
+                            <div key={rec.id} className="glass" style={{ padding: "24px", display: "flex", alignItems: "center", gap: 24, flexWrap: "wrap", borderRadius: 16, transition: "transform 0.2s ease, background 0.2s ease", border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)" }}
+                                onMouseOver={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.background = "rgba(255,255,255,0.05)"; }}
+                                onMouseOut={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.background = "rgba(255,255,255,0.03)"; }}>
 
                                 {/* Info */}
                                 <div style={{ flex: 1, minWidth: 240 }}>
@@ -164,8 +164,8 @@ export default function DocumentVault({ records }: Props) {
                 </div>
             )}
 
-            <div className="glass-strong" style={{ padding: "20px 24px", borderRadius: 12, fontSize: "0.9rem", color: "var(--text-secondary)", display: "flex", gap: 16, alignItems: "center", borderLeft: "4px solid #3b82f6" }}>
-                <div style={{ padding: 10, background: "rgba(59, 130, 246, 0.1)", borderRadius: "50%", color: "#60a5fa" }}>
+            <div className="glass-strong" style={{ padding: "20px 24px", borderRadius: 12, fontSize: "0.9rem", color: "var(--text-secondary)", display: "flex", gap: 16, alignItems: "center", borderLeft: "4px solid #8b5cf6", backgroundColor: "rgba(255,255,255,0.02)", borderTop: "1px solid rgba(255,255,255,0.05)", borderRight: "1px solid rgba(255,255,255,0.05)", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                <div style={{ padding: 10, background: "rgba(139,92,246,0.1)", borderRadius: "50%", color: "#a78bfa" }}>
                     <svg width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
                 </div>
                 <span style={{ fontWeight: 500, lineHeight: 1.5 }}>All downloads are tracked automatically. Files are served securely from the internal hospital servers.</span>

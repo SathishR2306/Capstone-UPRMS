@@ -5,11 +5,12 @@ import { useRouter } from "next/navigation";
 import api from "@/utils/api";
 
 import TimelineView from "./components/TimelineView";
-import AIInsights from "./components/AIInsights";
+import PatientProfile from "./components/PatientProfile";
 import Analytics from "./components/Analytics";
 import DocumentVault from "./components/DocumentVault";
 import AccessManager from "./components/AccessManager";
 import ChatBotEmbed from "./components/ChatBotEmbed";
+import PatientInsurance from "./components/PatientInsurance";
 import { 
     LuFileClock, 
     LuZap, 
@@ -21,10 +22,12 @@ import {
     LuBell,
     LuHospital,
     LuShieldCheck,
-    LuClock
+    LuClock,
+    LuShieldPlus,
+    LuUser
 } from "react-icons/lu";
 
-type Tab = "timeline" | "ai" | "analytics" | "vault" | "access";
+type Tab = "timeline" | "profile" | "analytics" | "vault" | "access" | "insurance";
 
 const TABS: { id: Tab; label: string; icon: React.ReactElement; color: string }[] = [
     {
@@ -32,8 +35,8 @@ const TABS: { id: Tab; label: string; icon: React.ReactElement; color: string }[
         icon: <LuFileClock size={18} />,
     },
     {
-        id: "ai", label: "Health Insights", color: "#8b5cf6",
-        icon: <LuZap size={18} />,
+        id: "profile", label: "My Profile", color: "#8b5cf6",
+        icon: <LuUser size={18} />,
     },
     {
         id: "analytics", label: "Health Analytics", color: "#F39C12",
@@ -47,14 +50,19 @@ const TABS: { id: Tab; label: string; icon: React.ReactElement; color: string }[
         id: "access", label: "Hospital Access", color: "#E74C3C",
         icon: <LuShield size={18} />,
     },
+    {
+        id: "insurance", label: "Insurance", color: "#22c55e",
+        icon: <LuShieldPlus size={18} />,
+    },
 ];
 
 const TAB_META: Record<Tab, { title: string; subtitle: string }> = {
     timeline: { title: "Medical Timeline", subtitle: "Chronological history of hospital visits and treatments" },
-    ai: { title: "Health Insights", subtitle: "Automated AI analysis based on your medical records" },
+    profile: { title: "My Profile", subtitle: "View and update your personal information and emergency contacts" },
     analytics: { title: "Health Analytics", subtitle: "Statistical overview and trends in your medical history" },
     vault: { title: "Document Vault", subtitle: "Secure repository for your medical reports and prescriptions" },
     access: { title: "Hospital Access Manager", subtitle: "Control which healthcare providers can access your records" },
+    insurance: { title: "Health Insurance", subtitle: "Manage your health insurance coverage for hospital billing" },
 };
 
 export default function PatientDashboard() {
@@ -240,10 +248,11 @@ export default function PatientDashboard() {
                     {/* Tab Content */}
                     <div className="animate-fade-up-delay-1">
                         {activeTab === "timeline" && <TimelineView records={records} />}
-                        {activeTab === "ai" && <AIInsights records={records} />}
+                        {activeTab === "profile" && <PatientProfile />}
                         {activeTab === "analytics" && <Analytics records={records} />}
                         {activeTab === "vault" && <DocumentVault records={records} />}
                         {activeTab === "access" && <AccessManager hospitals={hospitals} permissions={permissions} onRefresh={fetchAll} />}
+                        {activeTab === "insurance" && <PatientInsurance />}
                     </div>
                 </main>
             </div>

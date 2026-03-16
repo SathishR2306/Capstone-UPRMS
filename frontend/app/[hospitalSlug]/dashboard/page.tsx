@@ -13,6 +13,7 @@ import DoctorManagement from "@/app/hospital/dashboard/components/DoctorManageme
 import CreateDoctorTab from "@/app/hospital/dashboard/components/CreateDoctorTab";
 import FindPatient from "@/app/hospital/dashboard/components/FindPatient";
 import AssignPatient from "@/app/hospital/dashboard/components/AssignPatient";
+import AIPatientSummary from "@/app/hospital/dashboard/components/AIPatientSummary";
 
 import { 
     LuLayoutDashboard, 
@@ -29,7 +30,7 @@ import {
     LuUsers
 } from "react-icons/lu";
 
-type Tab = "overview" | "find_patient" | "search" | "assign_patient" | "upload" | "timeline" | "audit" | "doctors" | "create_doctor";
+type Tab = "overview" | "find_patient" | "search" | "ai_summary" | "assign_patient" | "upload" | "timeline" | "audit" | "doctors" | "create_doctor";
 
 const TABS: { id: Tab; label: string; icon: React.ReactElement; color: string }[] = [
     {
@@ -43,6 +44,10 @@ const TABS: { id: Tab; label: string; icon: React.ReactElement; color: string }[
     {
         id: "search", label: "My Patients", color: "#8b5cf6",
         icon: <LuUsers size={18} />,
+    },
+    {
+        id: "ai_summary", label: "AI Clinical Summary", color: "#f59e0b",
+        icon: <LuSparkles size={18} />,
     },
     {
         id: "assign_patient", label: "Assign Patient", color: "#10b981",
@@ -74,6 +79,7 @@ const TAB_META: Record<Tab, { title: string; subtitle: string }> = {
     overview: { title: "Dashboard Overview", subtitle: "Hospital profile, key statistics, and recent activity" },
     find_patient: { title: "Find New Patient", subtitle: "Enter Patient Registration Number to request access" },
     search: { title: "My Patients", subtitle: "View and manage patients currently linked to your hospital" },
+    ai_summary: { title: "AI Clinical Intelligence", subtitle: "Gemini AI analyzes all patient records — surgeries, ranked history, and treatment recommendations" },
     assign_patient: { title: "Assign Patient to Doctor", subtitle: "Link authorized patients to medical staff for consultation" },
     upload: { title: "Upload Medical Record", subtitle: "Create new medical entries for patients who have granted access" },
     timeline: { title: "Patient Timeline", subtitle: "View chronological health history for authorized patients" },
@@ -94,9 +100,13 @@ export default function HospitalDashboard() {
     const fetchProfileAndStats = useCallback(async () => {
         const role = localStorage.getItem("role");
         const storedSlug = localStorage.getItem("hospitalSlug");
-        
-        // Security check
-        if (role !== "HOSPITAL" || storedSlug !== params.hospitalSlug) {
+        const currentSlug = params.hospitalSlug as string;
+
+        // Wait until the slug param has hydrated before running the security check
+        if (!currentSlug) return;
+
+        // Security check: role must be HOSPITAL and slug must match
+        if (role !== "HOSPITAL" || storedSlug !== currentSlug) {
             router.push("/login");
             return;
         }
@@ -115,6 +125,7 @@ export default function HospitalDashboard() {
         }
     }, [router, params.hospitalSlug]);
 
+    // Re-run once the slug param hydrates (fixes the Next.js SSR undefined params issue)
     useEffect(() => { fetchProfileAndStats(); }, [fetchProfileAndStats]);
 
     const logout = () => { localStorage.clear(); router.push("/login"); };
@@ -270,6 +281,7 @@ export default function HospitalDashboard() {
                         )}
                         {activeTab === "find_patient" && <FindPatient />}
                         {activeTab === "search" && <PatientSearch onlyLinked={true} />}
+                        {activeTab === "ai_summary" && <AIPatientSummary />}
                         {activeTab === "assign_patient" && <AssignPatient />}
                         {activeTab === "upload" && <UploadRecordForm onUploadSuccess={() => setActiveTab("timeline")} />}
                         {activeTab === "timeline" && <HospitalTimelineView />}

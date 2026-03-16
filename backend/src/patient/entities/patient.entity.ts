@@ -27,4 +27,16 @@ export class Patient {
 
     @Column()
     gender: string;
+
+    @Column({ nullable: true })
+    bloodGroup: string;
+
+    @Column({ nullable: true })
+    emergencyContactName: string;
+
+    @Column({ nullable: true })
+    emergencyContactPhone: string;
+
+    @Column({ nullable: true })
+    emergencyContactRelation: string;
 }

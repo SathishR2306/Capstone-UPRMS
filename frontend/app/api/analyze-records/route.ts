@@ -6,7 +6,7 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 export async function POST(req: Request) {
     try {
         const body = await req.json();
-        const { records } = body;
+        const { records, patientInfo } = body;
 
         if (!records || !Array.isArray(records)) {
             return NextResponse.json({ error: "Invalid records provided" }, { status: 400 });
@@ -14,57 +14,112 @@ export async function POST(req: Request) {
 
         if (records.length === 0) {
             return NextResponse.json({
-                chronicConditions: [],
-                riskLevel: "low",
-                topMeds: [],
+                clinicalBrief: "No medical records available for this patient yet.",
                 healthScore: 100,
-                suggestions: ["Upload medical records to generate a comprehensive AI summary."],
+                riskLevel: "low",
+                chronicConditions: [],
+                surgeries: [],
+                importantTreatments: [],
+                rankedRecords: [],
+                topMeds: [],
+                suggestions: ["Upload medical records to generate a comprehensive clinical AI summary."],
                 treatmentHistory: [],
                 essentialFindings: [],
                 predictiveRisks: {
                     diabetes: 0,
                     cardiac: 0,
                     kidney: 0,
-                    riskContext: "Insufficient data to predict future health risks."
+                    riskContext: "Insufficient data to assess future health risks."
                 }
             });
         }
 
         const prompt = `
-You are an expert medical AI specializing in analyzing health histories from electronic health records.
-Analyze the following patient's medical records and provide a JSON response summarizing their health.
-You MUST return EXACTLY a raw JSON object string WITH NO MARKDOWN FORMATTING OR BACKTICKS.
-Use exactly this schema:
+You are a senior clinical AI assistant helping a treating doctor understand a patient's complete medical history.
+Analyze the following patient medical records thoroughly and return a structured JSON summary optimized for clinical decision-making.
+
+The doctor needs:
+1. A quick clinical brief to understand the patient at a glance
+2. Any surgeries or major procedures the patient has undergone
+3. The most clinically important treatments ranked by severity/urgency
+4. All records ranked from most to least clinically important
+5. Chronic conditions, risk scores, and actionable recommendations
+
+YOU MUST return ONLY raw valid JSON with NO markdown, NO backticks, NO explanations outside JSON.
+
+Return exactly this schema:
 {
-  "chronicConditions": string[], // e.g. ["diabetes", "hypertension"]
-  "riskLevel": "high" | "medium" | "low", // e.g. "medium"
-  "topMeds": [ [string, number] ], // array of tuples of medication names & frequencies. max 5. e.g. [["Aspirin", 2], ["Metformin", 1]]
-  "healthScore": number, // vitality score out of 100. Lower it depending on severity of chronic conditions and risks.
-  "suggestions": string[], // 3-4 actionable clinical notes or health improvement suggestions
-  "treatmentHistory": [ // Summarized timeline of treatments and medicines taken derived from the records
-      {
-          "date": string, // format like "YYYY-MM" or "Month YYYY"
-          "treatment": string, // The primary treatment/procedure applied
-          "medicines": string[] // The exact medicines prescribed during this visit
-      }
+  "clinicalBrief": string,  // 2-3 sentence executive summary of the patient's health status for the doctor. Include key conditions, major history, and current risk level.
+
+  "healthScore": number,    // Overall vitality score 0-100. Heavily reduce for surgeries, chronic conditions, high risk records.
+
+  "riskLevel": "high" | "medium" | "low",  // Overall patient risk level
+
+  "chronicConditions": string[],  // List of detected chronic/ongoing conditions e.g. ["Type 2 Diabetes", "Hypertension"]
+
+  "surgeries": [            // All surgeries or major procedures detected. Empty array if none.
+    {
+      "name": string,       // Name of surgery/procedure e.g. "Appendectomy", "Coronary Bypass"
+      "date": string,       // Date or approximate period e.g. "March 2023"
+      "hospital": string,   // Hospital name if available
+      "notes": string       // Brief clinical note about the surgery/outcome
+    }
   ],
-  "essentialFindings": string[], // 3-4 bullet points regarding critical events, notable surgeries, or lifestyle warnings
-  "predictiveRisks": { // Predictive analytics for future health risks based on current data
-      "diabetes": number, // probability percentage 0-100
-      "cardiac": number, // probability percentage 0-100
-      "kidney": number, // probability percentage 0-100
-      "riskContext": string // A clear, example-style summary of the topmost risk, e.g., "Based on 5-year history, 72% risk of hypertension progression."
+
+  "importantTreatments": [  // Top 5 most clinically significant treatments, ranked by importance (most critical first)
+    {
+      "rank": number,       // 1 = most important
+      "treatment": string,  // Treatment name/description
+      "date": string,
+      "reason": string,     // WHY this treatment is clinically important
+      "severity": "critical" | "high" | "moderate" | "routine"
+    }
+  ],
+
+  "rankedRecords": [        // ALL records re-ranked from most to least clinically important
+    {
+      "recordId": number,   // The original record id from the records array
+      "visitDate": string,
+      "diagnosis": string,
+      "hospital": string,
+      "importanceScore": number,   // 1-10 where 10 = most important/critical
+      "importanceReason": string,  // Why this record ranks at this importance level
+      "severityTag": "emergency" | "surgical" | "critical" | "chronic" | "moderate" | "routine",
+      "prescription": string
+    }
+  ],
+
+  "topMeds": [[string, number]],  // [[medicationName, frequency]] - top 5 most prescribed medications
+
+  "essentialFindings": string[],  // 4-5 bullet points: key clinical events, allergy alerts, surgery outcomes, lifestyle warnings
+
+  "suggestions": string[],        // 4-5 actionable clinical recommendations for the treating doctor
+
+  "treatmentHistory": [           // Chronological treatment timeline (oldest first)
+    {
+      "date": string,
+      "treatment": string,
+      "medicines": string[],
+      "isSurgery": boolean
+    }
+  ],
+
+  "predictiveRisks": {
+    "diabetes": number,   // 0-100 probability %
+    "cardiac": number,    // 0-100 probability %
+    "kidney": number,     // 0-100 probability %
+    "riskContext": string // Concise summary of the highest risk factor with supporting evidence from records
   }
 }
 
-Medical Records:
-${JSON.stringify(records)}
+Patient Medical Records:
+${JSON.stringify(records, null, 2)}
 `;
 
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: "gemini-2.5-flash",
             contents: prompt,
-            config: { responseMimeType: 'application/json' }
+            config: { responseMimeType: "application/json" }
         });
 
         const text = response.text || "{}";

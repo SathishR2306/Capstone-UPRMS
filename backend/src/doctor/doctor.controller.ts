@@ -109,4 +109,10 @@ export class DoctorController {
     getActivityLog(@Request() req) {
         return this.doctorService.getActivityLog(req.user.userId);
     }
+
+    // GET /doctors/notifications
+    @Get('notifications')
+    getNotifications(@Request() req) {
+        return this.doctorService.getNotifications(req.user.userId);
+    }
 }

@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository, InjectEntityManager } from '@nestjs/typeorm';
 import { Repository, EntityManager } from 'typeorm';
 import { Patient } from './entities/patient.entity';
+import { PatientInsurance } from './entities/patient-insurance.entity';
 import { User } from '../user/entities/user.entity';
 import { AccessPermission } from '../access-permission/entities/access-permission.entity';
 
@@ -9,6 +10,7 @@ import { AccessPermission } from '../access-permission/entities/access-permissio
 export class PatientService {
     constructor(
         @InjectRepository(Patient) private patientRepo: Repository<Patient>,
+        @InjectRepository(PatientInsurance) private insuranceRepo: Repository<PatientInsurance>,
         @InjectRepository(User) private userRepo: Repository<User>,
         @InjectEntityManager() private readonly entityManager: EntityManager,
     ) { }
@@ -33,14 +35,28 @@ export class PatientService {
             maskedAadhaar,
             dateOfBirth: patient.dateOfBirth,
             gender: patient.gender,
+            bloodGroup: patient.bloodGroup,
+            emergencyContactName: patient.emergencyContactName,
+            emergencyContactPhone: patient.emergencyContactPhone,
+            emergencyContactRelation: patient.emergencyContactRelation,
             role: user.role,
         };
     }
 
-    async updateProfile(userId: number, updateDto: { phone?: string }) {
+    async updateProfile(userId: number, updateDto: { phone?: string, bloodGroup?: string, emergencyContactName?: string, emergencyContactPhone?: string, emergencyContactRelation?: string }) {
         if (updateDto.phone) {
             await this.userRepo.update({ id: userId }, { phone: updateDto.phone });
         }
+        
+        const patient = await this.patientRepo.findOne({ where: { userId } });
+        if (patient) {
+            if (updateDto.bloodGroup !== undefined) patient.bloodGroup = updateDto.bloodGroup;
+            if (updateDto.emergencyContactName !== undefined) patient.emergencyContactName = updateDto.emergencyContactName;
+            if (updateDto.emergencyContactPhone !== undefined) patient.emergencyContactPhone = updateDto.emergencyContactPhone;
+            if (updateDto.emergencyContactRelation !== undefined) patient.emergencyContactRelation = updateDto.emergencyContactRelation;
+            await this.patientRepo.save(patient);
+        }
+
         return { message: 'Profile updated successfully' };
     }
 
@@ -128,4 +144,40 @@ export class PatientService {
         return result;
     }
 
+    async getInsurance(userId: number) {
+        const patient = await this.patientRepo.findOne({ where: { userId } });
+        if (!patient) throw new NotFoundException('Patient profile not found');
+
+        const insurance = await this.insuranceRepo.find({ where: { patientId: patient.id } });
+        return insurance;
+    }
+
+    async addOrUpdateInsurance(userId: number, dto: { id?: number, providerName: string, policyNumber: string, groupNumber: string, validUntil?: string, isActive?: boolean }) {
+        const patient = await this.patientRepo.findOne({ where: { userId } });
+        if (!patient) throw new NotFoundException('Patient profile not found');
+
+        if (dto.id) {
+            const existing = await this.insuranceRepo.findOne({ where: { id: dto.id, patientId: patient.id } });
+            if (!existing) throw new NotFoundException('Insurance record not found');
+            Object.assign(existing, dto);
+            return this.insuranceRepo.save(existing);
+        } else {
+            const newInsurance = this.insuranceRepo.create({
+                ...dto,
+                patientId: patient.id
+            });
+            return this.insuranceRepo.save(newInsurance);
+        }
+    }
+
+    async deleteInsurance(userId: number, insuranceId: number) {
+        const patient = await this.patientRepo.findOne({ where: { userId } });
+        if (!patient) throw new NotFoundException('Patient profile not found');
+
+        const existing = await this.insuranceRepo.findOne({ where: { id: insuranceId, patientId: patient.id } });
+        if (!existing) throw new NotFoundException('Insurance record not found');
+
+        await this.insuranceRepo.remove(existing);
+        return { message: 'Insurance deleted successfully' };
+    }
 }

@@ -133,6 +133,8 @@ export default function DoctorDashboard() {
         const role = localStorage.getItem("role");
         const storedSlug = localStorage.getItem("hospitalSlug");
         
+        if (!params.hospitalSlug || !params.doctorId) return; // Wait for hydration
+
         // Security check
         if (role !== "DOCTOR" || storedSlug !== params.hospitalSlug) {
             router.push("/login");

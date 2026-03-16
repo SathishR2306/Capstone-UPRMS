@@ -247,6 +247,109 @@ export class DoctorService {
         });
     }
 
+    // ── Notifications (derived from real assignment + activity data) ──────────
+    async getNotifications(doctorUserId: number) {
+        const doctor = await this.doctorRepo.findOne({ where: { userId: doctorUserId } });
+        if (!doctor) throw new NotFoundException('Doctor profile not found');
+
+        const notifications: {
+            id: string;
+            type: 'emergency' | 'assignment' | 'access' | 'activity' | 'info';
+            title: string;
+            message: string;
+            time: Date;
+            patientName?: string;
+            patientId?: number;
+            isEmergency?: boolean;
+            assignedBy?: string;
+            read: boolean;
+        }[] = [];
+
+        // 1. All assigned patients → generate notifications
+        const assignments = await this.assignmentRepo.find({
+            where: { doctorId: doctor.id },
+            relations: ['patient'],
+            order: { assignedAt: 'DESC' },
+        });
+
+        for (const a of assignments) {
+            const name = a.patient?.fullName ?? `Patient #${a.patientId}`;
+            const isNew = ((Date.now() - new Date(a.assignedAt).getTime()) / 1000 / 60 / 60) < 24;
+
+            if (a.isEmergency) {
+                notifications.push({
+                    id: `emergency-${a.id}`,
+                    type: 'emergency',
+                    title: '🚨 Emergency Patient Assigned',
+                    message: `${name} has been assigned to you as an EMERGENCY case by ${a.assignedBy ?? 'your hospital'}. Immediate attention required.`,
+                    time: a.assignedAt,
+                    patientName: name,
+                    patientId: a.patientId,
+                    isEmergency: true,
+                    assignedBy: a.assignedBy,
+                    read: false,
+                });
+            } else if (isNew) {
+                notifications.push({
+                    id: `new-assignment-${a.id}`,
+                    type: 'assignment',
+                    title: '👤 New Patient Assigned',
+                    message: `${name} has been newly assigned to your care by ${a.assignedBy ?? 'your hospital'}. Please review their medical history.`,
+                    time: a.assignedAt,
+                    patientName: name,
+                    patientId: a.patientId,
+                    isEmergency: false,
+                    assignedBy: a.assignedBy,
+                    read: false,
+                });
+            } else {
+                notifications.push({
+                    id: `assignment-${a.id}`,
+                    type: 'assignment',
+                    title: '👥 Patient Under Your Care',
+                    message: `${name} is currently assigned to you by ${a.assignedBy ?? 'your hospital'}.`,
+                    time: a.assignedAt,
+                    patientName: name,
+                    patientId: a.patientId,
+                    isEmergency: false,
+                    assignedBy: a.assignedBy,
+                    read: true,
+                });
+            }
+        }
+
+        // 2. Recent out-of-hours access activity
+        const recentLogs = await this.activityRepo.find({
+            where: { doctorId: doctor.id, isOutsideWorkHours: true },
+            relations: ['patient'],
+            order: { timestamp: 'DESC' },
+            take: 5,
+        });
+
+        for (const log of recentLogs) {
+            const pName = log.patient?.fullName ?? `Patient #${log.patientId}`;
+            notifications.push({
+                id: `activity-${log.id}`,
+                type: 'activity',
+                title: '⏰ Out-of-Hours Record Access',
+                message: `You accessed records for ${pName} outside your scheduled working hours. This has been logged in the audit trail.`,
+                time: log.timestamp,
+                patientName: pName,
+                patientId: log.patientId,
+                read: true,
+            });
+        }
+
+        // Sort: unread first, then newest first
+        notifications.sort((a, b) => {
+            if (!a.read && b.read) return -1;
+            if (a.read && !b.read) return 1;
+            return new Date(b.time).getTime() - new Date(a.time).getTime();
+        });
+
+        return notifications.slice(0, 30);
+    }
+
     async logActivity(
         doctorId: number,
         patientId: number | null,

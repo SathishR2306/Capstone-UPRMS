@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Body, Query, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Patch, Post, Delete, Param, ParseIntPipe, Body, Query, UseGuards, Request } from '@nestjs/common';
 import { PatientService } from './patient.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -17,7 +17,7 @@ export class PatientController {
 
     @Patch('profile')
     @Roles('PATIENT')
-    updateProfile(@Request() req, @Body() body: { phone?: string }) {
+    updateProfile(@Request() req, @Body() body: { phone?: string, bloodGroup?: string, emergencyContactName?: string, emergencyContactPhone?: string, emergencyContactRelation?: string }) {
         return this.patientService.updateProfile(req.user.userId, body);
     }
 
@@ -35,5 +35,23 @@ export class PatientController {
     @Roles('HOSPITAL')
     findByRegNumber(@Request() req, @Query('q') query: string) {
         return this.patientService.findByRegNumber(query, req.user.userId);
+    }
+
+    @Get('insurance')
+    @Roles('PATIENT')
+    getInsurance(@Request() req) {
+        return this.patientService.getInsurance(req.user.userId);
+    }
+
+    @Post('insurance')
+    @Roles('PATIENT')
+    addOrUpdateInsurance(@Request() req, @Body() body: any) {
+        return this.patientService.addOrUpdateInsurance(req.user.userId, body);
+    }
+
+    @Delete('insurance/:id')
+    @Roles('PATIENT')
+    deleteInsurance(@Request() req, @Param('id', ParseIntPipe) id: number) {
+        return this.patientService.deleteInsurance(req.user.userId, id);
     }
 }

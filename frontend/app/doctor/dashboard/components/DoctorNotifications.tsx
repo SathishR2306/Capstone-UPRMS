@@ -1,98 +1,153 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import api from "@/utils/api";
 
 interface Notification {
-    id: number;
-    type: "access" | "risk" | "expiry" | "info";
+    id: string;
+    type: "emergency" | "assignment" | "access" | "activity" | "info";
     title: string;
     message: string;
-    time: string;
+    time: string; // ISO string from backend
+    patientName?: string;
+    patientId?: number;
+    isEmergency?: boolean;
+    assignedBy?: string;
     read: boolean;
 }
 
 const TYPE_STYLE: Record<string, { icon: string; color: string; bg: string; border: string }> = {
-    access: { icon: "🔓", color: "#4ade80", bg: "rgba(34,197,94,0.1)", border: "rgba(34,197,94,0.2)" },
-    risk: { icon: "⚠️", color: "#facc15", bg: "rgba(234,179,8,0.1)", border: "rgba(234,179,8,0.2)" },
-    expiry: { icon: "⏰", color: "#fb923c", bg: "rgba(251,146,60,0.1)", border: "rgba(251,146,60,0.2)" },
-    info: { icon: "ℹ️", color: "#60a5fa", bg: "rgba(59,130,246,0.1)", border: "rgba(59,130,246,0.2)" },
+    emergency: { icon: "🚨", color: "#ef4444", bg: "rgba(239,68,68,0.15)", border: "rgba(239,68,68,0.4)" },
+    assignment: { icon: "👥", color: "#3b82f6", bg: "rgba(59,130,246,0.1)", border: "rgba(59,130,246,0.25)" },
+    access: { icon: "🔓", color: "#4ade80", bg: "rgba(34,197,94,0.1)", border: "rgba(34,197,94,0.25)" },
+    activity: { icon: "⏰", color: "#facc15", bg: "rgba(234,179,8,0.1)", border: "rgba(234,179,8,0.25)" },
+    info: { icon: "ℹ️", color: "#a78bfa", bg: "rgba(167,139,250,0.1)", border: "rgba(167,139,250,0.25)" },
 };
 
-const MOCK_NOTIFICATIONS: Notification[] = [
-    { id: 1, type: "access", title: "New Access Granted", message: "Patient has approved access to their medical records. You can now view their complete history.", time: "5 min ago", read: false },
-    { id: 2, type: "risk", title: "AI Risk Alert", message: "AI analysis detected elevated cardiac risk indicators in a recently accessed patient profile. Review recommended.", time: "1 hour ago", read: false },
-    { id: 3, type: "expiry", title: "Access Expiry Warning", message: "Your access to a patient's records may expire soon. Renew if follow-up is needed.", time: "2 hours ago", read: false },
-    { id: 4, type: "info", title: "System Update", message: "UPRMS Doctor Portal has been updated. Smart Timeline and AI Summary are now available for all authorized patients.", time: "1 day ago", read: true },
-];
+function formatTimeAgo(isoString: string) {
+    const diff = Date.now() - new Date(isoString).getTime();
+    if (diff < 60000) return "Just now";
+    if (diff < 3600000) return `${Math.floor(diff / 60000)} min ago`;
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)} hours ago`;
+    return `${Math.floor(diff / 86400000)} days ago`;
+}
 
 export default function DoctorNotifications() {
     const [notifications, setNotifications] = useState<Notification[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
 
     useEffect(() => {
-        // Simulate loading notifications (in a real system this would be an API call)
-        setTimeout(() => setNotifications(MOCK_NOTIFICATIONS), 300);
+        const fetchNotifications = async () => {
+            try {
+                const res = await api.get("/doctors/notifications");
+                setNotifications(res.data);
+            } catch (err: any) {
+                console.error("Failed to load notifications", err);
+                setError("Could not load notifications.");
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchNotifications();
     }, []);
 
-    const markRead = (id: number) => {
-        setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+    const markRead = (id: string) => {
+        setNotifications((prev) =>
+            prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+        );
     };
 
     const markAllRead = () => {
-        setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+        setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
     };
 
-    const unreadCount = notifications.filter(n => !n.read).length;
+    const unreadCount = notifications.filter((n) => !n.read).length;
+
+    if (loading) {
+        return <div style={{ padding: 40, textAlign: "center", color: "var(--text-secondary)" }}>Loading notifications...</div>;
+    }
+
+    if (error) {
+        return <div style={{ padding: 20, color: "#fca5a5", background: "rgba(239, 68, 68, 0.1)", borderRadius: 12 }}>{error}</div>;
+    }
 
     return (
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <div style={{ fontWeight: 700, color: "#fff", fontSize: "1rem" }}>Notifications</div>
+                    <div style={{ fontWeight: 800, color: "#fff", fontSize: "1.1rem" }}>Notifications & Alerts</div>
                     {unreadCount > 0 && (
-                        <span style={{ padding: "2px 10px", borderRadius: 20, background: "rgba(239,68,68,0.2)", color: "#f87171", fontSize: "0.78rem", fontWeight: 700 }}>
+                        <span style={{ padding: "4px 12px", borderRadius: 20, background: "rgba(239,68,68,0.2)", border: "1px solid rgba(239,68,68,0.3)", color: "#fca5a5", fontSize: "0.8rem", fontWeight: 700 }}>
                             {unreadCount} unread
                         </span>
                     )}
                 </div>
                 {unreadCount > 0 && (
-                    <button className="btn-outline" style={{ padding: "6px 16px", fontSize: "0.8rem" }} onClick={markAllRead}>Mark all read</button>
+                    <button className="btn-outline" style={{ padding: "6px 16px", fontSize: "0.8rem", borderColor: "rgba(255,255,255,0.2)" }} onClick={markAllRead}>
+                        Mark all read
+                    </button>
                 )}
             </div>
 
             {notifications.length === 0 ? (
-                <div style={{ padding: 40, textAlign: "center", color: "var(--text-secondary)" }}>
-                    <div style={{ fontSize: "2.5rem", marginBottom: 10 }}>🔔</div>
-                    No notifications at this time.
+                <div style={{ padding: "60px 40px", textAlign: "center", color: "var(--text-secondary)", background: "rgba(255,255,255,0.02)", borderRadius: 16 }}>
+                    <div style={{ fontSize: "3rem", marginBottom: 16 }}>🔔</div>
+                    <div style={{ fontWeight: 600, fontSize: "1rem", color: "#e2e8f0" }}>No notifications right now</div>
+                    <div style={{ fontSize: "0.85rem", marginTop: 4 }}>You will be alerted here when new patients are assigned.</div>
                 </div>
             ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                    {notifications.map(n => {
-                        const s = TYPE_STYLE[n.type];
+                    {notifications.map((n) => {
+                        const s = TYPE_STYLE[n.type] || TYPE_STYLE.info;
                         return (
-                            <div key={n.id} style={{ padding: 18, background: n.read ? "rgba(255,255,255,0.02)" : "rgba(255,255,255,0.05)", border: `1px solid ${n.read ? "var(--border)" : s.border}`, borderRadius: 12, display: "flex", gap: 16, alignItems: "flex-start", cursor: "pointer", transition: "all 0.2s" }}
-                                onClick={() => markRead(n.id)}>
-                                <div style={{ fontSize: "1.5rem", flexShrink: 0, width: 40, height: 40, borderRadius: 10, background: s.bg, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            <div
+                                key={n.id}
+                                style={{
+                                    padding: "20px",
+                                    background: n.read ? "rgba(255,255,255,0.03)" : s.bg,
+                                    border: `1px solid ${n.read ? "var(--border)" : s.border}`,
+                                    borderRadius: 14,
+                                    display: "flex",
+                                    gap: 16,
+                                    alignItems: "flex-start",
+                                    cursor: "pointer",
+                                    transition: "all 0.2s ease",
+                                    boxShadow: !n.read && n.type === "emergency" ? "0 4px 20px rgba(239,68,68,0.15)" : "none",
+                                }}
+                                onClick={() => markRead(n.id)}
+                            >
+                                <div style={{ fontSize: "1.5rem", flexShrink: 0, width: 44, height: 44, borderRadius: 12, background: n.read ? "rgba(255,255,255,0.05)" : s.bg, display: "flex", alignItems: "center", justifyContent: "center", border: n.read ? "none" : `1px solid ${s.border}` }}>
                                     {s.icon}
                                 </div>
-                                <div style={{ flex: 1 }}>
-                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
-                                        <div style={{ fontWeight: 700, color: n.read ? "var(--text-secondary)" : "#fff", fontSize: "0.92rem" }}>{n.title}</div>
-                                        <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", flexShrink: 0, marginLeft: 12 }}>{n.time}</div>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6, flexWrap: "wrap", gap: 10 }}>
+                                        <div style={{ fontWeight: n.read ? 600 : 800, color: n.read ? "rgba(255,255,255,0.7)" : n.type === "emergency" ? "#fca5a5" : "#fff", fontSize: "0.95rem" }}>
+                                            {n.title}
+                                        </div>
+                                        <div style={{ fontSize: "0.75rem", color: n.read ? "rgba(255,255,255,0.4)" : s.color, flexShrink: 0, fontWeight: n.read ? 500 : 700 }}>
+                                            {formatTimeAgo(n.time)}
+                                        </div>
                                     </div>
-                                    <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", lineHeight: 1.6 }}>{n.message}</div>
+                                    
+                                    <div style={{ fontSize: "0.88rem", color: n.read ? "rgba(255,255,255,0.5)" : "#e2e8f0", lineHeight: 1.6 }}>
+                                        {n.message}
+                                    </div>
+
+                                    {!n.read && n.type === "emergency" && (
+                                        <button onClick={(e) => { e.stopPropagation(); markRead(n.id); }} style={{ marginTop: 12, padding: "6px 16px", borderRadius: 8, background: "#ef4444", color: "#fff", border: "none", fontSize: "0.8rem", fontWeight: 700, cursor: "pointer" }}>
+                                            Acknowledge Emergency Alert
+                                        </button>
+                                    )}
                                 </div>
                                 {!n.read && (
-                                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: s.color, flexShrink: 0, marginTop: 6 }} />
+                                    <div style={{ width: 10, height: 10, borderRadius: "50%", background: s.color, flexShrink: 0, marginTop: 6, boxShadow: `0 0 10px ${s.color}` }} />
                                 )}
                             </div>
                         );
                     })}
                 </div>
             )}
-
-            <div style={{ padding: "12px 16px", background: "rgba(59,130,246,0.05)", borderRadius: 8, fontSize: "0.8rem", color: "var(--text-secondary)" }}>
-                💡 Future integration: Real-time notifications via WebSocket will be enabled in the next release.
-            </div>
         </div>
     );
 }
