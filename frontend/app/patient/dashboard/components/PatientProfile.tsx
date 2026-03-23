@@ -70,7 +70,7 @@ export default function PatientProfile() {
             {/* Header */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
-                    <h2 style={{ fontSize: "1.2rem", fontWeight: 700, color: "var(--bg-dark)" }}>My Profile</h2>
+                    <h2 style={{ fontSize: "1.2rem", fontWeight: 700, color: "#000" }}>My Profile</h2>
                     <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginTop: 4 }}>Manage your personal details and emergency contacts.</p>
                 </div>
                 {!isEditing ? (
@@ -96,29 +96,29 @@ export default function PatientProfile() {
                         <div style={{ width: 40, height: 40, borderRadius: 10, background: "rgba(59,130,246,0.1)", color: "#3b82f6", display: "flex", alignItems: "center", justifyContent: "center" }}>
                             <LuUser size={20} />
                         </div>
-                        <h3 style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--bg-dark)" }}>Personal Information</h3>
+                        <h3 style={{ fontSize: "1.1rem", fontWeight: 700, color: "#000" }}>Personal Information</h3>
                     </div>
 
                     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                         <div>
                             <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>Full Name</div>
-                            <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "var(--bg-dark)" }}>{profile?.fullName}</div>
+                            <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "#000" }}>{profile?.fullName}</div>
                         </div>
 
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                             <div>
                                 <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>Date of Birth</div>
-                                <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "var(--bg-dark)" }}>{profile?.dateOfBirth ? new Date(profile.dateOfBirth).toLocaleDateString() : "—"}</div>
+                                <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "#000" }}>{profile?.dateOfBirth ? new Date(profile.dateOfBirth).toLocaleDateString() : "—"}</div>
                             </div>
                             <div>
                                 <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>Gender</div>
-                                <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "var(--bg-dark)" }}>{profile?.gender}</div>
+                                <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "#000" }}>{profile?.gender}</div>
                             </div>
                         </div>
 
                         <div>
                             <div style={{ fontSize: "0.75rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>Aadhaar Number (Masked)</div>
-                            <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "var(--bg-dark)" }}>{profile?.maskedAadhaar}</div>
+                            <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "#000" }}>{profile?.maskedAadhaar}</div>
                         </div>
 
                         <div>
@@ -126,7 +126,7 @@ export default function PatientProfile() {
                             {isEditing ? (
                                 <input type="tel" className="input-field" value={phone} onChange={e => setPhone(e.target.value)} placeholder="Phone Number" />
                             ) : (
-                                <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "var(--bg-dark)" }}>{profile?.phone || "—"}</div>
+                                <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "#000" }}>{profile?.phone || "—"}</div>
                             )}
                         </div>
 
@@ -138,7 +138,7 @@ export default function PatientProfile() {
                                     {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map(bg => <option key={bg} value={bg}>{bg}</option>)}
                                 </select>
                             ) : (
-                                <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "var(--bg-dark)" }}>{profile?.bloodGroup || "—"}</div>
+                                <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "#000" }}>{profile?.bloodGroup || "—"}</div>
                             )}
                         </div>
                     </div>
@@ -150,7 +150,7 @@ export default function PatientProfile() {
                         <div style={{ width: 40, height: 40, borderRadius: 10, background: "rgba(239,68,68,0.1)", color: "#ef4444", display: "flex", alignItems: "center", justifyContent: "center" }}>
                             <LuPhone size={20} />
                         </div>
-                        <h3 style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--bg-dark)" }}>Emergency Contact</h3>
+                        <h3 style={{ fontSize: "1.1rem", fontWeight: 700, color: "#000" }}>Emergency Contact</h3>
                     </div>
 
                     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -159,7 +159,7 @@ export default function PatientProfile() {
                             {isEditing ? (
                                 <input type="text" className="input-field" value={emergencyContactName} onChange={e => setEmergencyContactName(e.target.value)} placeholder="Full Name" />
                             ) : (
-                                <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "var(--bg-dark)" }}>{profile?.emergencyContactName || "Not Provided"}</div>
+                                <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "#000" }}>{profile?.emergencyContactName || "Not Provided"}</div>
                             )}
                         </div>
 
@@ -168,7 +168,7 @@ export default function PatientProfile() {
                             {isEditing ? (
                                 <input type="tel" className="input-field" value={emergencyContactPhone} onChange={e => setEmergencyContactPhone(e.target.value)} placeholder="Phone Number" />
                             ) : (
-                                <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "var(--bg-dark)" }}>{profile?.emergencyContactPhone || "Not Provided"}</div>
+                                <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "#000" }}>{profile?.emergencyContactPhone || "Not Provided"}</div>
                             )}
                         </div>
 
@@ -180,10 +180,10 @@ export default function PatientProfile() {
                                     {["Spouse", "Parent", "Child", "Sibling", "Friend", "Other"].map(rel => <option key={rel} value={rel}>{rel}</option>)}
                                 </select>
                             ) : (
-                                <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "var(--bg-dark)" }}>{profile?.emergencyContactRelation || "Not Provided"}</div>
+                                <div style={{ fontSize: "0.95rem", fontWeight: 600, color: "#000" }}>{profile?.emergencyContactRelation || "Not Provided"}</div>
                             )}
                         </div>
-                        
+
                         {!isEditing && !profile?.emergencyContactPhone && (
                             <div style={{ padding: 12, background: "rgba(245,158,11,0.1)", color: "#d97706", borderRadius: 8, fontSize: "0.85rem", marginTop: "auto" }}>
                                 ⚠️ Please add an emergency contact in case of urgent medical situations.

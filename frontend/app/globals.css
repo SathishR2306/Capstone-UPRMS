@@ -46,18 +46,18 @@
   --border: rgba(255, 255, 255, 0.07);
 
   /* Accent — teal-forward medical palette */
-  --accent-teal:   #0fd4b0;
-  --accent-emerald:#00c896;
-  --accent-blue:   #1a8fff;
-  --accent-ice:    #7dd3fc;
+  --accent-teal: #0fd4b0;
+  --accent-emerald: #00c896;
+  --accent-blue: #1a8fff;
+  --accent-ice: #7dd3fc;
 
-  --text-primary:   #eef6ff;
+  --text-primary: #eef6ff;
   --text-secondary: #94b8d0;
 
   /* Gradient stops */
   --grad-start: #0fd4b0;
-  --grad-mid:   #1a8fff;
-  --grad-end:   #7dd3fc;
+  --grad-mid: #1a8fff;
+  --grad-end: #7dd3fc;
 }
 
 /* ── Reset ───────────────────────────────────────────── */
@@ -89,16 +89,18 @@ body {
 /* ── Sidebar ─────────────────────────────────────────── */
 .dashboard-sidebar {
   width: 260px;
-  min-height: 100vh;
+  height: 100vh;
   background: var(--bg-sidebar);
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
   box-shadow: var(--shadow-sidebar);
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
   z-index: 40;
   transition: width 0.3s ease;
+  overflow-y: auto;
 }
 
 .sidebar-logo {
@@ -195,6 +197,7 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  margin-left: 260px;
 }
 
 /* ── Top Header ──────────────────────────────────────── */
@@ -283,6 +286,11 @@ body {
   flex: 1;
   padding: 28px 32px;
   overflow-y: auto;
+
+  /* Override dark-theme variables for light dashboard */
+  --text-primary: #1E293B;
+  --text-secondary: #5F7285;
+  --border: rgba(15, 27, 63, 0.10);
 }
 
 /* ── Shopeers Cards ──────────────────────────────────── */
@@ -653,6 +661,10 @@ body {
     display: none;
   }
 
+  .dashboard-body {
+    margin-left: 0;
+  }
+
   .dashboard-content {
     padding: 20px 16px;
   }
@@ -703,7 +715,7 @@ body {
   border-radius: 20px;
 }
 
-/* ── Landing glass classes ───────────────────────────── */
+/* ── Glass classes (default: dark theme) ─────────────── */
 .glass {
   background: rgba(15, 212, 176, 0.04);
   backdrop-filter: blur(20px);
@@ -718,6 +730,25 @@ body {
   -webkit-backdrop-filter: blur(30px);
   border: 1px solid rgba(15, 212, 176, 0.14);
   border-radius: 20px;
+}
+
+/* ── Glass on light dashboard ────────────────────────── */
+.dashboard-content .glass {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(15, 27, 63, 0.08);
+  border-radius: 16px;
+  box-shadow: 0 2px 12px rgba(15, 27, 63, 0.06);
+}
+
+.dashboard-content .glass-strong {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+  border: 1px solid rgba(15, 27, 63, 0.10);
+  border-radius: 20px;
+  box-shadow: 0 2px 16px rgba(15, 27, 63, 0.08);
 }
 
 /* ── Gradient text ───────────────────────────────────── */
@@ -761,9 +792,12 @@ body {
 }
 
 @keyframes float {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: translateY(0) scale(1);
   }
+
   50% {
     transform: translateY(-28px) scale(1.04);
   }

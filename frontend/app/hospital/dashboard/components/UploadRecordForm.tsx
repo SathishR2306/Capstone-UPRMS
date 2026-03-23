@@ -71,30 +71,30 @@ export default function UploadRecordForm({ onUploadSuccess }: { onUploadSuccess:
     }
 
     return (
-        <div className="glass-strong" style={{ padding: "32px", width: "100%" }}>
+        <div style={{ padding: "32px", width: "100%", background: "#fff", borderRadius: 16, border: "1px solid #E8EDF5", boxShadow: "0 2px 12px rgba(15,27,63,0.06)" }}>
             {patients.length === 0 ? (
                 <div style={{ textAlign: "center", padding: "40px 20px" }}>
-                    <div style={{ width: 64, height: 64, background: "rgba(255,255,255,0.05)", color: "var(--text-secondary)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
+                    <div style={{ width: 64, height: 64, background: "rgba(26,188,156,0.08)", color: "#1ABC9C", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
                         <LuUserPlus size={32} />
                     </div>
-                    <h3 style={{ fontSize: "1.1rem", color: "#fff", marginBottom: 8 }}>No Authorized Patients Found</h3>
-                    <p style={{ color: "var(--text-secondary)", fontSize: "0.95rem" }}>You cannot upload records because no patient has granted you active access. Please search for a patient and request access first.</p>
+                    <h3 style={{ fontSize: "1.1rem", color: "#1E293B", marginBottom: 8 }}>No Authorized Patients Found</h3>
+                    <p style={{ color: "#5F7285", fontSize: "0.95rem" }}>You cannot upload records because no patient has granted you active access. Please search for a patient and request access first.</p>
                 </div>
             ) : (
                 <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 
                     <div>
-                        <label style={{ display: "block", fontSize: "0.9rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6 }}>Select Patient *</label>
+                        <label style={{ display: "block", fontSize: "0.9rem", fontWeight: 600, color: "#3D5166", marginBottom: 6 }}>Select Patient *</label>
                         <select
                             value={patientId}
                             onChange={e => setPatientId(e.target.value)}
                             className="input-field"
-                            style={{ padding: "12px", cursor: "pointer", background: "rgba(255, 255, 255, 0.05)", color: "#ffffff" }}
+                            style={{ padding: "12px", cursor: "pointer", background: "#fff", color: "#1E293B", border: "1.5px solid #E8EDF5" }}
                             required
                         >
                             <option value="" disabled>-- Select a patient --</option>
                             {patients.map(p => (
-                                <option key={p.patientId} value={p.patientId} style={{ color: "#0f172a" }}>
+                                <option key={p.patientId} value={p.patientId} style={{ color: "#1E293B" }}>
                                     {p.fullName} (Aadhaar: {p.maskedAadhaar})
                                 </option>
                             ))}
@@ -102,61 +102,61 @@ export default function UploadRecordForm({ onUploadSuccess }: { onUploadSuccess:
                     </div>
 
                     <div>
-                        <label style={{ display: "block", fontSize: "0.9rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6 }}>Visit Date *</label>
+                        <label style={{ display: "block", fontSize: "0.9rem", fontWeight: 600, color: "#3D5166", marginBottom: 6 }}>Visit Date *</label>
                         <input
                             type="date"
                             value={visitDate}
                             onChange={e => setVisitDate(e.target.value)}
                             className="input-field"
-                            style={{ padding: "12px", colorScheme: "dark" }}
+                            style={{ padding: "12px", colorScheme: "light", color: "#1E293B", background: "#fff", border: "1.5px solid #E8EDF5" }}
                             required
                         />
                     </div>
 
                     <div>
-                        <label style={{ display: "block", fontSize: "0.9rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6 }}>Clinical Diagnosis *</label>
+                        <label style={{ display: "block", fontSize: "0.9rem", fontWeight: 600, color: "#3D5166", marginBottom: 6 }}>Clinical Diagnosis *</label>
                         <input
                             type="text"
                             placeholder="e.g. Acute Bronchitis, Hypertension"
                             value={diagnosis}
                             onChange={e => setDiagnosis(e.target.value)}
                             className="input-field"
-                            style={{ padding: "12px" }}
+                            style={{ padding: "12px", color: "#1E293B", background: "#fff", border: "1.5px solid #E8EDF5" }}
                             required
                         />
                     </div>
 
                     <div>
-                        <label style={{ display: "block", fontSize: "0.9rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6 }}>Prescription / Treatment Plan</label>
+                        <label style={{ display: "block", fontSize: "0.9rem", fontWeight: 600, color: "#3D5166", marginBottom: 6 }}>Prescription / Treatment Plan</label>
                         <textarea
                             placeholder="List prescribed medicines, dosage, and instructions..."
                             value={prescription}
                             onChange={e => setPrescription(e.target.value)}
                             className="input-field"
-                            style={{ padding: "12px", minHeight: 100, resize: "vertical" }}
+                            style={{ padding: "12px", minHeight: 100, resize: "vertical", color: "#1E293B", background: "#fff", border: "1.5px solid #E8EDF5" }}
                         />
                     </div>
 
                     <div>
-                        <label style={{ display: "block", fontSize: "0.9rem", fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6 }}>Attach File (Lab Report / Scan / PDF)</label>
-                        <div style={{ border: "2px dashed var(--border)", borderRadius: 8, padding: "20px", textAlign: "center", background: "rgba(255,255,255,0.02)" }}>
+                        <label style={{ display: "block", fontSize: "0.9rem", fontWeight: 600, color: "#3D5166", marginBottom: 6 }}>Attach File (Lab Report / Scan / PDF)</label>
+                        <div style={{ border: "2px dashed #d0d9e8", borderRadius: 8, padding: "20px", textAlign: "center", background: "#f8fafc" }}>
                             <input
                                 type="file"
                                 accept=".pdf,.png,.jpeg,.jpg"
                                 onChange={e => setFile(e.target.files ? e.target.files[0] : null)}
-                                style={{ fontSize: "0.9rem", color: "var(--text-secondary)" }}
+                                style={{ fontSize: "0.9rem", color: "#3D5166" }}
                             />
-                            <p style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 8 }}>Max file size: 5MB. PDF, JPG, PNG allowed.</p>
+                            <p style={{ fontSize: "0.75rem", color: "#94a3b8", marginTop: 8 }}>Max file size: 5MB. PDF, JPG, PNG allowed.</p>
                         </div>
                     </div>
 
                     {msg && (
-                        <div style={{ padding: "12px 16px", borderRadius: 8, fontSize: "0.9rem", fontWeight: 500, background: msg.includes("Failed") || msg.includes("Please") ? "rgba(239, 68, 68, 0.1)" : "rgba(74, 222, 128, 0.1)", color: msg.includes("Failed") || msg.includes("Please") ? "#fca5a5" : "#86efac", border: `1px solid ${msg.includes("Failed") || msg.includes("Please") ? "rgba(239, 68, 68, 0.2)" : "rgba(74, 222, 128, 0.2)"}` }}>
+                        <div style={{ padding: "12px 16px", borderRadius: 8, fontSize: "0.9rem", fontWeight: 500, background: msg.includes("Failed") || msg.includes("Please") ? "#fef2f2" : "#f0fdf4", color: msg.includes("Failed") || msg.includes("Please") ? "#ef4444" : "#16a34a", border: `1px solid ${msg.includes("Failed") || msg.includes("Please") ? "#fecaca" : "#bbf7d0"}` }}>
                             {msg}
                         </div>
                     )}
 
-                    <div style={{ marginTop: 12, paddingTop: 20, borderTop: "1px solid var(--border)", display: "flex", justifyContent: "flex-end" }}>
+                    <div style={{ marginTop: 12, paddingTop: 20, borderTop: "1px solid #E8EDF5", display: "flex", justifyContent: "flex-end" }}>
                         <button type="submit" disabled={submitting} className="btn-primary" style={{ padding: "12px 24px", fontSize: "1rem", display: "flex", alignItems: "center", gap: 10 }}>
                             <LuFileUp size={18} />
                             {submitting ? "Uploading..." : "Submit Record"}

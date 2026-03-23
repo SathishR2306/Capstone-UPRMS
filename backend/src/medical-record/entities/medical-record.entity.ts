@@ -40,6 +40,8 @@ export class MedicalRecord {
     @Column({ type: 'text', nullable: true })
     reportFileURL: string | null;
 
+    @Column({ type: 'text', nullable: true })
+    aiResult: string | null;
 
     @CreateDateColumn()
     createdAt: Date;

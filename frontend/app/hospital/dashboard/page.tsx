@@ -236,7 +236,7 @@ export default function HospitalDashboard() {
                     </div>
 
                     {/* Tab Content */}
-                    <div className="dark-panel animate-fade-up-delay-1">
+                    <div className="animate-fade-up-delay-1">
                         {activeTab === "overview" && profile && stats && (
                             <HospitalProfileCard profile={profile} stats={stats} onProfileUpdate={fetchProfileAndStats} />
                         )}

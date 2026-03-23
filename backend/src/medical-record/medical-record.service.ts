@@ -52,6 +52,27 @@ export class MedicalRecordService {
 
         const reportFileURL = file ? `uploads/${file.filename}` : null;
 
+        // Calling NLP Service
+        let aiResult = null;
+        try {
+            const combinedText = `${dto.diagnosis || ''} ${dto.prescription || ''}`.trim();
+            if (combinedText) {
+                const response = await fetch(process.env.NLP_SERVICE_URL || 'http://127.0.0.1:8000/predict', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: combinedText })
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    aiResult = data.summary || data.prediction;
+                } else {
+                    console.error('NLP Service Error:', response.statusText);
+                }
+            }
+        } catch (err) {
+            console.error('Failed to connect to NLP service', err);
+        }
+
         const record = this.recordRepo.create({
             patientId: Number(dto.patientId),
             hospitalId: hospital.id,
@@ -59,6 +80,7 @@ export class MedicalRecordService {
             prescription: dto.prescription,
             visitDate: dto.visitDate,
             reportFileURL,
+            aiResult,
         });
 
         await this.recordRepo.save(record);
