@@ -110,7 +110,7 @@ export default function HospitalDashboard() {
     const initials = profile?.hospitalName?.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase() ?? "H";
 
     return (
-        <div className="dashboard-shell">
+        <div className="dashboard-shell dark-theme">
             {/* ── LEFT SIDEBAR ─────────────────────────────────── */}
             <aside className="dashboard-sidebar">
                 {/* Logo */}

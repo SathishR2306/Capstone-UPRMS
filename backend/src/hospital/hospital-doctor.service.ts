@@ -4,42 +4,29 @@ import {
     ForbiddenException,
     ConflictException,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
+import { Prisma } from '@prisma/client';
 
-import { Doctor, DoctorRole, DoctorStatus } from '../doctor/entities/doctor.entity';
-import { DoctorActivityLog } from '../doctor/entities/doctor-activity-log.entity';
-import { DoctorPatientAssignment } from '../doctor/entities/doctor-patient-assignment.entity';
-import { User, UserRole } from '../user/entities/user.entity';
-import { Patient } from '../patient/entities/patient.entity';
-import { Hospital } from './entities/hospital.entity';
+import { PrismaService } from '../prisma/prisma.service';
+
+const BCRYPT_ROUNDS = 12;
+
+// Helper: mask aadhaar
+const maskAadhaar = (n: string | null) =>
+    n ? 'XXXX-XXXX-' + n.slice(-4) : 'N/A';
 
 @Injectable()
 export class HospitalDoctorService {
-    constructor(
-        @InjectRepository(Hospital)
-        private readonly hospitalRepo: Repository<Hospital>,
-        @InjectRepository(Doctor)
-        private readonly doctorRepo: Repository<Doctor>,
-        @InjectRepository(DoctorActivityLog)
-        private readonly activityRepo: Repository<DoctorActivityLog>,
-        @InjectRepository(DoctorPatientAssignment)
-        private readonly assignmentRepo: Repository<DoctorPatientAssignment>,
-        @InjectRepository(User)
-        private readonly userRepo: Repository<User>,
-        @InjectRepository(Patient)
-        private readonly patientRepo: Repository<Patient>,
-    ) { }
+    constructor(private readonly prisma: PrismaService) {}
 
     // ── Helper: resolve hospital from JWT userId ──────────────────────────────
-    private async getHospital(userId: number): Promise<Hospital> {
-        const h = await this.hospitalRepo.findOne({ where: { userId } });
+    private async getHospital(userId: number) {
+        const h = await this.prisma.hospital.findUnique({ where: { userId } });
         if (!h) throw new NotFoundException('Hospital profile not found');
         return h;
     }
 
-    // ── Register a new doctor ─────────────────────────────────────────────────
+    // ── Register doctor ───────────────────────────────────────────────────────
     async registerDoctor(
         adminUserId: number,
         dto: {
@@ -49,77 +36,80 @@ export class HospitalDoctorService {
             fullName: string;
             specialization?: string;
             department?: string;
-            role?: DoctorRole;
+            role?: string;
             licenseNumber?: string;
         },
     ) {
         const hospital = await this.getHospital(adminUserId);
+        const passwordHash = await bcrypt.hash(dto.password, BCRYPT_ROUNDS);
 
-        // Check uniqueness
-        const existing = await this.userRepo.findOne({ where: { phone: dto.phone } });
-        if (existing) throw new ConflictException('A user with this phone already exists');
+        try {
+            const result = await this.prisma.$transaction(async (tx) => {
+                return tx.user.create({
+                    data: {
+                        phone: dto.phone,
+                        aadhaarNumber: dto.aadhaarNumber,
+                        passwordHash,
+                        role: 'DOCTOR',
+                        doctor: {
+                            create: {
+                                hospitalId: hospital.id,
+                                fullName: dto.fullName,
+                                specialization: dto.specialization,
+                                department: dto.department,
+                                role: (dto.role as any) ?? 'JUNIOR_DOCTOR',
+                                licenseNumber: dto.licenseNumber,
+                                status: 'ACTIVE',
+                            },
+                        },
+                    },
+                    select: { id: true, doctor: { select: { id: true } } },
+                });
+            });
 
-        const hashed = await bcrypt.hash(dto.password, 10);
-        const user = this.userRepo.create({
-            phone: dto.phone,
-            aadhaar_number: dto.aadhaarNumber,
-            password: hashed,
-            role: UserRole.DOCTOR,
-        });
-        const savedUser = await this.userRepo.save(user);
-
-        const doctor = this.doctorRepo.create({
-            userId: savedUser.id,
-            hospitalId: hospital.id,
-            fullName: dto.fullName,
-            specialization: dto.specialization,
-            department: dto.department,
-            role: dto.role ?? DoctorRole.JUNIOR_DOCTOR,
-            licenseNumber: dto.licenseNumber,
-            status: DoctorStatus.ACTIVE,
-        });
-        const savedDoctor = await this.doctorRepo.save(doctor);
-
-        return {
-            message: 'Doctor registered successfully',
-            doctorId: savedDoctor.id,
-            userId: savedUser.id,
-        };
+            return {
+                message: 'Doctor registered successfully',
+                doctorId: result.doctor?.id,
+                userId: result.id,
+            };
+        } catch (e: any) {
+            if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+                const target = (e.meta?.target as string[] | undefined)?.join(', ') ?? '';
+                if (target.includes('phone')) throw new ConflictException('A user with this phone already exists');
+                if (target.includes('aadhaar')) throw new ConflictException('Aadhaar number already registered');
+            }
+            throw e;
+        }
     }
 
-    // ── List all doctors in this hospital ─────────────────────────────────────
+    // ── List doctors ──────────────────────────────────────────────────────────
     async listDoctors(adminUserId: number) {
         const hospital = await this.getHospital(adminUserId);
 
-        const doctors = await this.doctorRepo.find({
+        const doctors = await this.prisma.doctor.findMany({
             where: { hospitalId: hospital.id },
-            relations: ['user'],
-            order: { id: 'ASC' },
+            include: { user: { select: { phone: true } } },
+            orderBy: { id: 'asc' },
         });
 
-        return doctors.map(d => {
-            let licenseStatus = 'VALID';
-            let daysRemaining: number | null = null;
-
-            return {
-                id: d.id,
-                userId: d.userId,
-                fullName: d.fullName,
-                specialization: d.specialization,
-                department: d.department,
-                role: d.role,
-                status: d.status,
-                licenseNumber: d.licenseNumber,
-                licenseStatus,
-                daysRemaining,
-                phone: d.user?.phone,
-                workingHoursStart: d.workingHoursStart,
-                workingHoursEnd: d.workingHoursEnd,
-            };
-        });
+        return doctors.map((d) => ({
+            id: d.id,
+            userId: d.userId,
+            fullName: d.fullName,
+            specialization: d.specialization,
+            department: d.department,
+            role: d.role,
+            status: d.status,
+            licenseNumber: d.licenseNumber,
+            licenseStatus: 'VALID',
+            daysRemaining: null,
+            phone: d.user?.phone,
+            workingHoursStart: d.workingHoursStart,
+            workingHoursEnd: d.workingHoursEnd,
+        }));
     }
 
-    // ── Update a doctor (role, department, status, schedule) ──────────────────
+    // ── Update doctor ─────────────────────────────────────────────────────────
     async updateDoctor(
         adminUserId: number,
         doctorId: number,
@@ -127,72 +117,83 @@ export class HospitalDoctorService {
             fullName?: string;
             specialization?: string;
             department?: string;
-            role?: DoctorRole;
-            status?: DoctorStatus;
+            role?: string;
+            status?: string;
             licenseNumber?: string;
             workingHoursStart?: string;
             workingHoursEnd?: string;
         },
     ) {
         const hospital = await this.getHospital(adminUserId);
-        const doctor = await this.doctorRepo.findOne({ where: { id: doctorId, hospitalId: hospital.id } });
+        const doctor = await this.prisma.doctor.findFirst({
+            where: { id: doctorId, hospitalId: hospital.id },
+        });
         if (!doctor) throw new NotFoundException('Doctor not found in your hospital');
 
-        Object.assign(doctor, {
-            ...(dto.fullName !== undefined && { fullName: dto.fullName }),
-            ...(dto.specialization !== undefined && { specialization: dto.specialization }),
-            ...(dto.department !== undefined && { department: dto.department }),
-            ...(dto.role !== undefined && { role: dto.role }),
-            ...(dto.status !== undefined && { status: dto.status }),
-            ...(dto.licenseNumber !== undefined && { licenseNumber: dto.licenseNumber }),
-            ...(dto.workingHoursStart !== undefined && { workingHoursStart: dto.workingHoursStart }),
-            ...(dto.workingHoursEnd !== undefined && { workingHoursEnd: dto.workingHoursEnd }),
+        await this.prisma.doctor.update({
+            where: { id: doctorId },
+            data: {
+                ...(dto.fullName !== undefined && { fullName: dto.fullName }),
+                ...(dto.specialization !== undefined && { specialization: dto.specialization }),
+                ...(dto.department !== undefined && { department: dto.department }),
+                ...(dto.role !== undefined && { role: dto.role as any }),
+                ...(dto.status !== undefined && { status: dto.status as any }),
+                ...(dto.licenseNumber !== undefined && { licenseNumber: dto.licenseNumber }),
+                ...(dto.workingHoursStart !== undefined && { workingHoursStart: dto.workingHoursStart }),
+                ...(dto.workingHoursEnd !== undefined && { workingHoursEnd: dto.workingHoursEnd }),
+            },
         });
 
-        await this.doctorRepo.save(doctor);
         return { message: 'Doctor updated successfully' };
     }
 
-    // ── Suspend a doctor ──────────────────────────────────────────────────────
+    // ── Suspend doctor ────────────────────────────────────────────────────────
     async suspendDoctor(adminUserId: number, doctorId: number) {
         const hospital = await this.getHospital(adminUserId);
-        const doctor = await this.doctorRepo.findOne({ where: { id: doctorId, hospitalId: hospital.id } });
+        const doctor = await this.prisma.doctor.findFirst({
+            where: { id: doctorId, hospitalId: hospital.id },
+        });
         if (!doctor) throw new NotFoundException('Doctor not found in your hospital');
 
-        doctor.status = DoctorStatus.SUSPENDED;
-        await this.doctorRepo.save(doctor);
+        await this.prisma.doctor.update({ where: { id: doctorId }, data: { status: 'SUSPENDED' } });
         return { message: 'Doctor suspended successfully' };
     }
 
-    // ── Remove (hard delete) a doctor ─────────────────────────────────────────
+    // ── Remove doctor (hard delete) ───────────────────────────────────────────
     async removeDoctor(adminUserId: number, doctorId: number) {
         const hospital = await this.getHospital(adminUserId);
-        const doctor = await this.doctorRepo.findOne({ where: { id: doctorId, hospitalId: hospital.id } });
+        const doctor = await this.prisma.doctor.findFirst({
+            where: { id: doctorId, hospitalId: hospital.id },
+        });
         if (!doctor) throw new NotFoundException('Doctor not found in your hospital');
 
-        // Remove all assignments first to avoid FK violation
-        await this.assignmentRepo.delete({ doctorId: doctor.id });
-        await this.doctorRepo.remove(doctor);
+        // Cascade set up in schema; just delete doctor (assignments cascade)
+        await this.prisma.$transaction([
+            this.prisma.doctorPatientAssignment.deleteMany({ where: { doctorId } }),
+            this.prisma.doctor.delete({ where: { id: doctorId } }),
+        ]);
+
         return { message: 'Doctor removed successfully' };
     }
 
-    // ── Doctor performance analytics ──────────────────────────────────────────
+    // ── Performance analytics ─────────────────────────────────────────────────
     async getDoctorPerformance(adminUserId: number, doctorId: number) {
         const hospital = await this.getHospital(adminUserId);
-        const doctor = await this.doctorRepo.findOne({ where: { id: doctorId, hospitalId: hospital.id } });
+        const doctor = await this.prisma.doctor.findFirst({
+            where: { id: doctorId, hospitalId: hospital.id },
+        });
         if (!doctor) throw new NotFoundException('Doctor not found in your hospital');
 
-        const logs = await this.activityRepo.find({ where: { doctorId: doctor.id } });
+        const [logs, assignedCount] = await this.prisma.$transaction([
+            this.prisma.doctorActivityLog.findMany({ where: { doctorId } }),
+            this.prisma.doctorPatientAssignment.count({ where: { doctorId } }),
+        ]);
 
         const counts: Record<string, number> = {};
         for (const log of logs) {
             counts[log.action] = (counts[log.action] || 0) + 1;
         }
-
-        const outOfHoursCount = logs.filter(l => l.isOutsideWorkHours).length;
-
-        // Assigned patients count
-        const assignedCount = await this.assignmentRepo.count({ where: { doctorId: doctor.id } });
+        const outOfHoursCount = logs.filter((l) => l.isOutsideWorkHours).length;
 
         return {
             doctorId,
@@ -207,97 +208,105 @@ export class HospitalDoctorService {
     // ── Doctor activity log (admin view) ──────────────────────────────────────
     async getDoctorActivity(adminUserId: number, doctorId: number) {
         const hospital = await this.getHospital(adminUserId);
-        const doctor = await this.doctorRepo.findOne({ where: { id: doctorId, hospitalId: hospital.id } });
+        const doctor = await this.prisma.doctor.findFirst({
+            where: { id: doctorId, hospitalId: hospital.id },
+        });
         if (!doctor) throw new NotFoundException('Doctor not found in your hospital');
 
-        return this.activityRepo.find({
-            where: { doctorId: doctor.id },
-            relations: ['patient'],
-            order: { timestamp: 'DESC' },
+        return this.prisma.doctorActivityLog.findMany({
+            where: { doctorId },
+            include: { patient: { select: { fullName: true, id: true } } },
+            orderBy: { createdAt: 'desc' },
             take: 200,
         });
     }
 
-    // ── Assign a patient to a doctor ──────────────────────────────────────────
+    // ── Assign patient to doctor ──────────────────────────────────────────────
     async assignPatient(
         adminUserId: number,
         doctorId: number,
         dto: { patientId: number; isEmergency?: boolean },
     ) {
         const hospital = await this.getHospital(adminUserId);
-        const doctor = await this.doctorRepo.findOne({ where: { id: doctorId, hospitalId: hospital.id } });
+        const doctor = await this.prisma.doctor.findFirst({
+            where: { id: doctorId, hospitalId: hospital.id },
+        });
         if (!doctor) throw new NotFoundException('Doctor not found in your hospital');
-        if (doctor.status !== DoctorStatus.ACTIVE) {
+        if (doctor.status !== 'ACTIVE') {
             throw new ForbiddenException('Cannot assign patients to a non-active doctor');
         }
 
-        const patient = await this.patientRepo.findOne({ where: { id: dto.patientId } });
+        const patient = await this.prisma.patient.findUnique({ where: { id: dto.patientId } });
         if (!patient) throw new NotFoundException('Patient not found');
 
-        // Check if patient is already assigned to ANY doctor
-        const existingAssignment = await this.assignmentRepo.findOne({
+        // Check if patient already assigned to any doctor
+        const existing = await this.prisma.doctorPatientAssignment.findUnique({
             where: { patientId: dto.patientId },
-            relations: ['doctor', 'doctor.hospital']
+            include: { doctor: { select: { fullName: true, hospital: { select: { hospitalName: true } } } } },
         });
 
-        if (existingAssignment) {
-            if (existingAssignment.doctorId === doctor.id) {
-                // Same doctor: just update flags
-                existingAssignment.isEmergency = dto.isEmergency ?? false;
-                existingAssignment.assignedBy = hospital.hospitalName;
-                await this.assignmentRepo.save(existingAssignment);
-                return { message: 'Patient assignment updated', assignmentId: existingAssignment.id };
+        if (existing) {
+            if (existing.doctorId === doctorId) {
+                await this.prisma.doctorPatientAssignment.update({
+                    where: { patientId: dto.patientId },
+                    data: { isEmergency: dto.isEmergency ?? false, assignedBy: hospital.hospitalName },
+                });
+                return { message: 'Patient assignment updated', assignmentId: existing.id };
             } else {
-                // Different doctor: throw conflict
-                const otherDoc = existingAssignment.doctor;
                 throw new ConflictException(
-                    `Patient is already assigned to Dr. ${otherDoc.fullName} (Hospital: ${otherDoc.hospital?.hospitalName}). Please unassign them first.`
+                    `Patient is already assigned to Dr. ${existing.doctor.fullName} (Hospital: ${existing.doctor.hospital?.hospitalName}). Please unassign first.`,
                 );
             }
         }
 
-        const assignment = this.assignmentRepo.create({
-            doctorId: doctor.id,
-            patientId: dto.patientId,
-            isEmergency: dto.isEmergency ?? false,
-            assignedBy: hospital.hospitalName,
+        const assignment = await this.prisma.doctorPatientAssignment.create({
+            data: {
+                doctorId,
+                patientId: dto.patientId,
+                isEmergency: dto.isEmergency ?? false,
+                assignedBy: hospital.hospitalName,
+            },
         });
-        const saved = await this.assignmentRepo.save(assignment);
-        return { message: 'Patient assigned successfully', assignmentId: saved.id };
+
+        return { message: 'Patient assigned successfully', assignmentId: assignment.id };
     }
 
-    // ── Unassign a patient from a doctor ──────────────────────────────────────
-    async unassignPatient(
-        adminUserId: number,
-        doctorId: number,
-        patientId: number
-    ) {
+    // ── Unassign patient ──────────────────────────────────────────────────────
+    async unassignPatient(adminUserId: number, doctorId: number, patientId: number) {
         const hospital = await this.getHospital(adminUserId);
-        const doctor = await this.doctorRepo.findOne({ where: { id: doctorId, hospitalId: hospital.id } });
+        const doctor = await this.prisma.doctor.findFirst({
+            where: { id: doctorId, hospitalId: hospital.id },
+        });
         if (!doctor) throw new NotFoundException('Doctor not found in your hospital');
 
-        const assignment = await this.assignmentRepo.findOne({
-            where: { doctorId, patientId }
+        const assignment = await this.prisma.doctorPatientAssignment.findFirst({
+            where: { doctorId, patientId },
         });
         if (!assignment) throw new NotFoundException('Assignment not found');
 
-        await this.assignmentRepo.remove(assignment);
+        await this.prisma.doctorPatientAssignment.delete({ where: { id: assignment.id } });
         return { message: 'Patient unassigned successfully' };
     }
 
     // ── Get patients assigned to a doctor ─────────────────────────────────────
     async getDoctorPatients(adminUserId: number, doctorId: number) {
         const hospital = await this.getHospital(adminUserId);
-        const doctor = await this.doctorRepo.findOne({ where: { id: doctorId, hospitalId: hospital.id } });
+        const doctor = await this.prisma.doctor.findFirst({
+            where: { id: doctorId, hospitalId: hospital.id },
+        });
         if (!doctor) throw new NotFoundException('Doctor not found in your hospital');
 
-        const assignments = await this.assignmentRepo.find({
-            where: { doctorId: doctor.id },
-            relations: ['patient', 'patient.user'],
-            order: { assignedAt: 'DESC' },
+        const assignments = await this.prisma.doctorPatientAssignment.findMany({
+            where: { doctorId },
+            include: {
+                patient: {
+                    include: { user: { select: { phone: true } } },
+                },
+            },
+            orderBy: { assignedAt: 'desc' },
         });
 
-        return assignments.map(a => ({
+        return assignments.map((a) => ({
             assignmentId: a.id,
             patientId: a.patientId,
             fullName: a.patient?.fullName,

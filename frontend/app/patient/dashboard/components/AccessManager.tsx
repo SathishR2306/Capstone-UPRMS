@@ -3,8 +3,15 @@
 import { useState } from "react";
 import api from "../../../../utils/api";
 
-interface Hospital { id: number; hospitalName: string; registrationNumber: string }
-interface Permission { hospitalId: number; accessGranted: boolean; grantedAt?: string; hospital: Hospital; status: string; }
+interface Hospital { id: number; hospitalName: string; registrationNumber?: string; }
+// Backend shape: { id, patientId, hospitalId, status, grantedAt, updatedAt, hospital: { id, hospitalName, slug, city } }
+interface Permission {
+    patientId: number;
+    hospitalId: number;
+    status: string; // 'APPROVED' | 'PENDING' | 'REVOKED' | 'REJECTED'
+    grantedAt?: string;
+    hospital: { id: number; hospitalName: string; slug?: string; city?: string };
+}
 interface Props {
     hospitals: Hospital[];
     permissions: Permission[];
@@ -15,9 +22,9 @@ export default function AccessManager({ hospitals, permissions, onRefresh }: Pro
     const [accessLoading, setAccessLoading] = useState<number | null>(null);
     const [activeTab, setActiveTab] = useState<"manage" | "history">("manage");
 
+    // Permissions keyed by hospitalId
     const permMap = Object.fromEntries(permissions.map(p => [p.hospitalId, p]));
 
-    // Added action parameter to support "reject"
     async function toggleAccess(hospitalId: number, currentlyGranted: boolean, action?: "reject") {
         setAccessLoading(hospitalId);
         try {
@@ -40,17 +47,24 @@ export default function AccessManager({ hospitals, permissions, onRefresh }: Pro
         return new Date(b.grantedAt).getTime() - new Date(a.grantedAt).getTime();
     });
 
-    // Only show hospitals that have requested or have access
-    const filteredHospitals = hospitals.filter(h => permMap[h.id]);
+    // Show hospitals that appear in permissions (via hospital.id)
+    const permittedHospitalIds = new Set(permissions.map(p => p.hospitalId));
+    // Merge permissions hospital data with hospitals list (or use directly from permissions)
+    const hospsFromPerms = permissions.map(p => ({
+        id: p.hospital.id,
+        hospitalName: p.hospital.hospitalName,
+        registrationNumber: '',
+    }));
+    const allHospitals = [...hospitals, ...hospsFromPerms].filter(
+        (h, i, arr) => arr.findIndex(x => x.id === h.id) === i
+    );
+    const filteredHospitals = allHospitals.filter(h => permMap[h.id]);
 
     const sortedHospitals = filteredHospitals.sort((a, b) => {
-        const pA = permMap[a.id];
-        const pB = permMap[b.id];
-        const statusA = pA?.status || "NONE";
-        const statusB = pB?.status || "NONE";
-
+        const statusA = permMap[a.id]?.status ?? 'NONE';
+        const statusB = permMap[b.id]?.status ?? 'NONE';
         const weight = { PENDING: 0, APPROVED: 1, REVOKED: 2, REJECTED: 3, NONE: 4 };
-        return weight[statusA as keyof typeof weight] - weight[statusB as keyof typeof weight];
+        return (weight[statusA as keyof typeof weight] ?? 4) - (weight[statusB as keyof typeof weight] ?? 4);
     });
 
     return (
@@ -81,7 +95,7 @@ export default function AccessManager({ hospitals, permissions, onRefresh }: Pro
                         </div>
                     ) : sortedHospitals.map(h => {
                         const perm = permMap[h.id];
-                        const granted = perm?.accessGranted === true;
+                        const granted = perm?.status === 'APPROVED';
                         const isPending = perm?.status === "PENDING";
                         const isRejected = perm?.status === "REJECTED";
                         const isLoading = accessLoading === h.id;
@@ -120,7 +134,7 @@ export default function AccessManager({ hospitals, permissions, onRefresh }: Pro
                                     <div>
                                         <div style={{ fontWeight: 700, fontSize: "1.2rem", color: "var(--text-dark)", marginBottom: 6 }}>{h.hospitalName}</div>
                                         <div style={{ fontSize: "0.9rem", color: "var(--text-medium)", fontWeight: 500, display: "flex", alignItems: "center", gap: 8 }}>
-                                            Reg: <span style={{ color: "var(--navy-900)" }}>{h.registrationNumber}</span>
+                                            {h.registrationNumber ? <>Reg: <span style={{ color: "var(--navy-900)" }}>{h.registrationNumber}</span></> : null}
                                             {perm?.grantedAt && <span style={{ color: "var(--border-light)" }}>|</span>}
                                             {perm?.grantedAt && <span>Updated {new Date(perm.grantedAt).toLocaleDateString("en-IN")}</span>}
                                         </div>
@@ -192,13 +206,13 @@ export default function AccessManager({ hospitals, permissions, onRefresh }: Pro
                             <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
                                 {history.map(p => (
                                     <div key={p.hospitalId} style={{ display: "flex", gap: 24, alignItems: "flex-start", position: "relative" }}>
-                                        <div style={{ width: 44, height: 44, borderRadius: "50%", background: p.accessGranted ? "var(--teal-light)" : "var(--danger-light)", color: p.accessGranted ? "var(--teal-500)" : "var(--danger)", border: `2px solid ${p.accessGranted ? "rgba(26, 188, 156, 0.4)" : "rgba(231, 76, 60, 0.4)"}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginLeft: -22, zIndex: 2, boxShadow: "0 0 0 6px var(--bg-dashboard)" }}>
-                                            {p.accessGranted ? <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg> : <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>}
+                                        <div style={{ width: 44, height: 44, borderRadius: "50%", background: p.status === 'APPROVED' ? "var(--teal-light)" : "var(--danger-light)", color: p.status === 'APPROVED' ? "var(--teal-500)" : "var(--danger)", border: `2px solid ${p.status === 'APPROVED' ? "rgba(26, 188, 156, 0.4)" : "rgba(231, 76, 60, 0.4)"}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginLeft: -22, zIndex: 2, boxShadow: "0 0 0 6px var(--bg-dashboard)" }}>
+                                            {p.status === 'APPROVED' ? <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg> : <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>}
                                         </div>
                                         <div className="sh-card" style={{ flex: 1, padding: "24px", borderRadius: 16 }}>
                                             <div style={{ fontWeight: 700, fontSize: "1.1rem", color: "var(--text-dark)", marginBottom: 8 }}>{p.hospital?.hospitalName ?? "Unknown Hospital"}</div>
                                             <div style={{ fontSize: "0.9rem", color: "var(--text-medium)", fontWeight: 500, display: "flex", alignItems: "center", gap: 8 }}>
-                                                Action: <span style={{ color: p.accessGranted ? "var(--teal-500)" : "var(--danger)", fontWeight: 700 }}>{p.accessGranted ? "Access Granted" : "Access Revoked"}</span>
+                                                Action: <span style={{ color: p.status === 'APPROVED' ? "var(--teal-500)" : "var(--danger)", fontWeight: 700 }}>{p.status === 'APPROVED' ? "Access Granted" : p.status === 'REVOKED' ? "Access Revoked" : p.status}</span>
                                                 {p.grantedAt && <span style={{ color: "var(--border-light)", margin: "0 6px" }}>|</span>}
                                                 {p.grantedAt && <span>Timestamp: {new Date(p.grantedAt).toLocaleString("en-IN")}</span>}
                                             </div>

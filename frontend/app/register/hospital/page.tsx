@@ -41,7 +41,7 @@ export default function RegisterHospitalPage() {
         try {
             await api.post("/auth/register/hospital", {
                 phone: form.phone,
-                aadhaar_number: randomAadhaar,
+                aadhaarNumber: randomAadhaar,
                 password: form.password,
                 hospitalName: form.hospitalName,
                 registrationNumber: form.registrationNumber,

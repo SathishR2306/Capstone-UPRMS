@@ -26,9 +26,9 @@ import { Roles } from '../auth/decorators/roles.decorator';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('medical-records')
 export class MedicalRecordController {
-    constructor(private readonly service: MedicalRecordService) { }
+    constructor(private readonly service: MedicalRecordService) {}
 
-    // ── Step 9: Hospital uploads a record ────────────────────────────────────
+    // ── Hospital uploads record ───────────────────────────────────────────────
     @Post('upload')
     @Roles('HOSPITAL')
     @UseInterceptors(
@@ -41,11 +41,11 @@ export class MedicalRecordController {
                 },
             }),
             fileFilter: (_req, file, cb) => {
-                // Accept only PDFs and images
                 const allowed = /pdf|jpeg|jpg|png/;
                 const ok = allowed.test(extname(file.originalname).toLowerCase());
                 cb(ok ? null : new Error('Only PDF/image files are allowed'), ok);
             },
+            limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
         }),
     )
     upload(
@@ -56,14 +56,7 @@ export class MedicalRecordController {
         return this.service.upload(dto, file, req.user.userId);
     }
 
-    // ── Step 10: Doctor views all records for their hospital ─────────────────
-    @Get('my-records')
-    @Roles('DOCTOR')
-    getDoctorRecords(@Request() req) {
-        return this.service.findByDoctor(req.user.userId);
-    }
-
-    // ── Hospital views their own uploaded records ─────────────────────────────
+    // ── Hospital: own uploaded records ────────────────────────────────────────
     @Get('hospital-records')
     @Roles('HOSPITAL')
     getHospitalRecords(@Request() req) {
@@ -75,26 +68,26 @@ export class MedicalRecordController {
     @Roles('HOSPITAL', 'DOCTOR')
     getPatientRecords(
         @Param('patientId', ParseIntPipe) patientId: number,
-        @Request() req
+        @Request() req,
     ) {
         return this.service.findByPatient(patientId, req.user.userId, req.user.role);
     }
 
-    // ── Patient views their own records ──────────────────────────────────────
+    // ── Patient: own records ──────────────────────────────────────────────────
     @Get('patient-records')
     @Roles('PATIENT')
     getMyRecords(@Request() req) {
         return this.service.findByPatientUserId(req.user.userId);
     }
 
-    // ── Download a report file ────────────────────────────────────────────────
+    // ── Secure file download (path traversal protected) ───────────────────────
     @Get('download/:filename')
     downloadFile(
         @Param('filename') filename: string,
         @Res() res: Response,
     ) {
-        const filePath = join(process.cwd(), 'uploads', filename);
-        return res.download(filePath, filename);
+        const safeFilename = this.service.sanitizeFilename(filename);
+        const filePath = join(process.cwd(), 'uploads', safeFilename);
+        return res.download(filePath, safeFilename);
     }
 }
-

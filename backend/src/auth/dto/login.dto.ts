@@ -1,7 +1,11 @@
+import { IsString, IsNotEmpty } from 'class-validator';
+
 export class LoginDto {
-    phone?: string;
-    hospitalName?: string;
-    registrationNumber?: string;
-    docId?: number;
+    @IsString()
+    @IsNotEmpty()
+    phone: string;
+
+    @IsString()
+    @IsNotEmpty()
     password: string;
 }

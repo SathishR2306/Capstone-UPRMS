@@ -60,6 +60,57 @@
   --grad-end: #7dd3fc;
 }
 
+/* ── Dark Theme Utility ──────────────────────────────── */
+.dark-theme {
+  --bg-dashboard: #020617; /* Slate-950 */
+  --bg-card: #0f172a;      /* Slate-900 */
+  --bg-topbar: rgba(15, 23, 42, 0.8);
+  --text-dark: #f8fafc;
+  --text-medium: #94a3b8;
+  --text-muted: #64748b;
+  --border-light: rgba(255, 255, 255, 0.08);
+  --border-card: rgba(255, 255, 255, 0.06);
+  --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.4);
+  --shadow-card-hover: 0 10px 40px rgba(0, 0, 0, 0.6);
+  --bg-sidebar: #020617;
+  --sidebar-border: rgba(255, 255, 255, 0.05);
+  --input-bg: rgba(255, 255, 255, 0.04);
+}
+
+.dark-theme .dashboard-topbar {
+  background: var(--bg-topbar) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border-light) !important;
+}
+
+.dark-theme .topbar-icon-btn {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  color: #94a3b8 !important;
+}
+
+.dark-theme .topbar-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #fff !important;
+}
+
+.dark-theme .input-field {
+  background: var(--input-bg) !important;
+  border-color: var(--border-light) !important;
+  color: #fff !important;
+}
+
+.dark-theme .sh-table tr:hover td {
+  background: rgba(255, 255, 255, 0.02) !important;
+}
+
+.dark-theme .dashboard-content {
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --border: rgba(255, 255, 255, 0.08);
+}
+
 /* ── Reset ───────────────────────────────────────────── */
 *,
 *::before,

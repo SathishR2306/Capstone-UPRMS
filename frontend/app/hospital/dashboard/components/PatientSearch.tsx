@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import api from "@/utils/api";
 import { LuSearch, LuCalendar, LuPhone, LuShieldCheck, LuClock } from "react-icons/lu";
 
@@ -13,34 +13,24 @@ type PatientResult = {
     accessGranted: boolean;
 };
 
-export default function PatientSearch({ onlyLinked = false }: { onlyLinked?: boolean }) {
+export default function PatientSearch() {
     const [query, setQuery] = useState("");
     const [results, setResults] = useState<PatientResult[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
 
-    // Initial fetch for linked patients
-    useEffect(() => {
-        if (onlyLinked) {
-            handleSearch();
-        }
-    }, [onlyLinked]);
-
-
     async function handleSearch(e?: React.FormEvent) {
         if (e) e.preventDefault();
-        
-        // Allow empty query if onlyLinked is true to show all linked patients
-        if (!onlyLinked && query.trim().length < 2) return;
+        if (query.trim().length < 2) return;
 
         setLoading(true);
         setError("");
         try {
-            const url = `/patient/search?q=${encodeURIComponent(query)}&linked=${onlyLinked}`;
-            const res = await api.get(url);
+            // Backend endpoint: GET /patient/search?q=<query>
+            const res = await api.get(`/patient/search?q=${encodeURIComponent(query.trim())}`);
             setResults(res.data);
             if (res.data.length === 0) {
-                setError(onlyLinked ? "No linked patients found." : "No patients found matching your search.");
+                setError("No patients found matching your search.");
             }
         } catch {
             setError("Failed to search patients. Please try again.");
@@ -53,8 +43,10 @@ export default function PatientSearch({ onlyLinked = false }: { onlyLinked?: boo
     async function handleAccessAction(patientId: number, action: "request" | "cancel") {
         try {
             if (action === "request") {
+                // Backend: POST /access/request (hospital requests access to patient)
                 await api.post("/access/request", { patientId });
             } else {
+                // Backend: POST /access/cancel-request
                 await api.post("/access/cancel-request", { patientId });
             }
             // Re-trigger search to update status

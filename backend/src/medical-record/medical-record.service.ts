@@ -2,161 +2,114 @@ import {
     Injectable,
     ForbiddenException,
     NotFoundException,
+    BadRequestException,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-
-import { MedicalRecord } from './entities/medical-record.entity';
-import { AccessPermission } from '../access-permission/entities/access-permission.entity';
-import { Hospital } from '../hospital/entities/hospital.entity';
-import { Doctor } from '../doctor/entities/doctor.entity';
+import { PrismaService } from '../prisma/prisma.service';
 import { UploadRecordDto } from './dto/upload-record.dto';
+import * as path from 'path';
 
 @Injectable()
 export class MedicalRecordService {
-    constructor(
-        @InjectRepository(MedicalRecord)
-        private readonly recordRepo: Repository<MedicalRecord>,
-        @InjectRepository(AccessPermission)
-        private readonly permRepo: Repository<AccessPermission>,
-        @InjectRepository(Hospital)
-        private readonly hospitalRepo: Repository<Hospital>,
-        @InjectRepository(Doctor)
-        private readonly doctorRepo: Repository<Doctor>,
-    ) { }
+    constructor(private readonly prisma: PrismaService) {}
 
-    // ── Step 9: Hospital uploads record ──────────────────────────────────────
+    // ── Hospital uploads record (access-gated) ────────────────────────────────
     async upload(
         dto: UploadRecordDto,
         file: Express.Multer.File | undefined,
         hospitalUserId: number,
     ) {
-        // Resolve hospital from JWT userId
-        const hospital = await this.hospitalRepo.findOne({
-            where: { userId: hospitalUserId },
-        });
+        const hospital = await this.prisma.hospital.findUnique({ where: { userId: hospitalUserId } });
         if (!hospital) throw new NotFoundException('Hospital profile not found');
 
-        // Access gate: patient must have granted access to this hospital
-        const permission = await this.permRepo.findOne({
+        const patientId = Number(dto.patientId);
+
+        // Access gate
+        const permission = await this.prisma.accessPermission.findUnique({
             where: {
-                patientId: Number(dto.patientId),
-                hospitalId: hospital.id,
-                accessGranted: true,
+                patientId_hospitalId: { patientId, hospitalId: hospital.id },
             },
         });
-        if (!permission)
-            throw new ForbiddenException(
-                'Patient has not granted access to this hospital',
-            );
-
-        const reportFileURL = file ? `uploads/${file.filename}` : null;
-
-        // Calling NLP Service
-        let aiResult = null;
-        try {
-            const combinedText = `${dto.diagnosis || ''} ${dto.prescription || ''}`.trim();
-            if (combinedText) {
-                const response = await fetch(process.env.NLP_SERVICE_URL || 'http://127.0.0.1:8000/predict', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ text: combinedText })
-                });
-                if (response.ok) {
-                    const data = await response.json();
-                    aiResult = data.summary || data.prediction;
-                } else {
-                    console.error('NLP Service Error:', response.statusText);
-                }
-            }
-        } catch (err) {
-            console.error('Failed to connect to NLP service', err);
+        if (!permission || permission.status !== 'APPROVED') {
+            throw new ForbiddenException('Patient has not granted access to this hospital');
         }
 
-        const record = this.recordRepo.create({
-            patientId: Number(dto.patientId),
-            hospitalId: hospital.id,
-            diagnosis: dto.diagnosis,
-            prescription: dto.prescription,
-            visitDate: dto.visitDate,
-            reportFileURL,
-            aiResult,
+        const reportFileUrl = file ? `uploads/${file.filename}` : null;
+
+        const record = await this.prisma.medicalRecord.create({
+            data: {
+                patientId,
+                hospitalId: hospital.id,
+                diagnosis: dto.diagnosis,
+                prescription: dto.prescription,
+                visitDate: dto.visitDate,
+                reportFileUrl,
+            },
         });
 
-        await this.recordRepo.save(record);
         return { message: 'Record uploaded successfully', recordId: record.id };
     }
 
-    // ── Step 10: Doctor views records for their linked hospital ──────────────
-    async findByDoctor(doctorUserId: number) {
-        const doctorProfile = await this.doctorRepo.findOne({
-            where: { userId: doctorUserId },
-        });
-        if (!doctorProfile)
-            throw new NotFoundException('Doctor profile not found');
-
-        return this.recordRepo.find({
-            where: { hospitalId: doctorProfile.hospitalId },
-            relations: ['patient', 'patient.user', 'hospital'],
-            order: { createdAt: 'DESC' },
-        });
-    }
-
-    // ── Hospital views all their own records ─────────────────────────────────
+    // ── Hospital: all their uploaded records ──────────────────────────────────
     async findByHospital(hospitalUserId: number) {
-        const hospital = await this.hospitalRepo.findOne({
-            where: { userId: hospitalUserId },
-        });
+        const hospital = await this.prisma.hospital.findUnique({ where: { userId: hospitalUserId } });
         if (!hospital) throw new NotFoundException('Hospital profile not found');
 
-        return this.recordRepo.find({
+        return this.prisma.medicalRecord.findMany({
             where: { hospitalId: hospital.id },
-            relations: ['patient', 'patient.user'],
-            order: { createdAt: 'DESC' },
+            include: { patient: { select: { fullName: true, id: true } } },
+            orderBy: { createdAt: 'desc' },
         });
     }
 
-    // ── View records by patient (hospital or doctor) ─────────────────────────
+    // ── View records for specific patient (HOSPITAL or DOCTOR, consent-gated) ──
     async findByPatient(patientId: number, requestingUserId: number, role: string) {
         let checkHospitalId: number;
 
         if (role === 'HOSPITAL') {
-            const hosp = await this.hospitalRepo.findOne({ where: { userId: requestingUserId } });
+            const hosp = await this.prisma.hospital.findUnique({ where: { userId: requestingUserId } });
             if (!hosp) throw new NotFoundException('Hospital not found');
             checkHospitalId = hosp.id;
         } else if (role === 'DOCTOR') {
-            const doc = await this.doctorRepo.findOne({ where: { userId: requestingUserId } });
+            const doc = await this.prisma.doctor.findUnique({ where: { userId: requestingUserId } });
             if (!doc) throw new NotFoundException('Doctor not found');
             checkHospitalId = doc.hospitalId;
         } else {
             throw new ForbiddenException('Invalid role for this endpoint');
         }
 
-        const permission = await this.permRepo.findOne({
-            where: { patientId, hospitalId: checkHospitalId, accessGranted: true }
+        const permission = await this.prisma.accessPermission.findUnique({
+            where: { patientId_hospitalId: { patientId, hospitalId: checkHospitalId } },
         });
+        if (!permission || permission.status !== 'APPROVED') {
+            throw new ForbiddenException('Patient has not granted active access');
+        }
 
-        if (!permission) throw new ForbiddenException('Patient has not granted active access');
-
-        return this.recordRepo.find({
+        return this.prisma.medicalRecord.findMany({
             where: { patientId },
-            relations: ['hospital'],
-            order: { visitDate: 'ASC' },
+            include: { hospital: { select: { id: true, hospitalName: true } } },
+            orderBy: { visitDate: 'asc' },
         });
     }
 
-    // ── Patient views their own records (using userId from JWT) ──────────────
+    // ── Patient: own records ──────────────────────────────────────────────────
     async findByPatientUserId(userId: number) {
-        const patient = await this.doctorRepo.manager
-            .getRepository('patients')
-            .findOne({ where: { userId } }) as { id: number } | null;
+        const patient = await this.prisma.patient.findUnique({ where: { userId } });
         if (!patient) return [];
 
-        return this.recordRepo.find({
+        return this.prisma.medicalRecord.findMany({
             where: { patientId: patient.id },
-            relations: ['hospital'],
-            order: { visitDate: 'ASC' },
+            include: { hospital: { select: { id: true, hospitalName: true } } },
+            orderBy: { visitDate: 'asc' },
         });
     }
-}
 
+    // ── Secure file download (path traversal protection) ─────────────────────
+    sanitizeFilename(filename: string): string {
+        // Strip path separators and any ".." segments
+        const base = path.basename(filename);
+        if (base !== filename || base.includes('..') || base.startsWith('/')) {
+            throw new BadRequestException('Invalid filename');
+        }
+        return base;
+    }
+}

@@ -1,32 +1,32 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
-import { InjectRepository, InjectEntityManager } from '@nestjs/typeorm';
-import { Repository, EntityManager } from 'typeorm';
-import { Hospital } from './entities/hospital.entity';
-import { User, UserRole } from '../user/entities/user.entity';
-import { Patient } from '../patient/entities/patient.entity';
-import { AccessPermission } from '../access-permission/entities/access-permission.entity';
-import { MedicalRecord } from '../medical-record/entities/medical-record.entity';
-import { Doctor } from '../doctor/entities/doctor.entity';
+import {
+    Injectable,
+    NotFoundException,
+    ConflictException,
+} from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
+import { Prisma } from '@prisma/client';
+
+import { PrismaService } from '../prisma/prisma.service';
+
+const BCRYPT_ROUNDS = 12;
 
 @Injectable()
 export class HospitalService {
-    constructor(
-        @InjectRepository(Hospital) private hospitalRepo: Repository<Hospital>,
-        @InjectEntityManager() private readonly entityManager: EntityManager,
-    ) { }
+    constructor(private readonly prisma: PrismaService) {}
 
+    // ── List all hospitals (public) ──────────────────────────────────────────
     async findAll() {
-        return this.hospitalRepo.find({
-            select: ['id', 'hospitalName', 'registrationNumber', 'slug'],
-            order: { hospitalName: 'ASC' },
+        return this.prisma.hospital.findMany({
+            select: { id: true, hospitalName: true, registrationNumber: true, slug: true },
+            orderBy: { hospitalName: 'asc' },
         });
     }
 
+    // ── Own profile ──────────────────────────────────────────────────────────
     async getProfile(userId: number) {
-        const hospital = await this.hospitalRepo.findOne({
+        const hospital = await this.prisma.hospital.findUnique({
             where: { userId },
-            relations: ['user']
+            include: { user: { select: { phone: true } } },
         });
         if (!hospital) throw new NotFoundException('Hospital not found');
 
@@ -35,152 +35,130 @@ export class HospitalService {
             hospitalName: hospital.hospitalName,
             registrationNumber: hospital.registrationNumber,
             slug: hospital.slug,
+            address: hospital.address,
+            city: hospital.city,
             phone: hospital.user.phone,
         };
     }
 
-    async updateProfile(userId: number, updateDto: { phone?: string }) {
-        if (updateDto.phone) {
-            await this.entityManager.update(User, { id: userId }, { phone: updateDto.phone });
-        }
+    // ── Update profile ───────────────────────────────────────────────────────
+    async updateProfile(
+        userId: number,
+        dto: { phone?: string; address?: string; city?: string; hospitalPhone?: string },
+    ) {
+        await this.prisma.$transaction(async (tx) => {
+            if (dto.phone) {
+                await tx.user.update({ where: { id: userId }, data: { phone: dto.phone } });
+            }
+            const updateData: Prisma.HospitalUpdateInput = {};
+            if (dto.address !== undefined) updateData.address = dto.address;
+            if (dto.city !== undefined) updateData.city = dto.city;
+            if (dto.hospitalPhone !== undefined) updateData.phone = dto.hospitalPhone;
+            if (Object.keys(updateData).length > 0) {
+                await tx.hospital.update({ where: { userId }, data: updateData });
+            }
+        });
         return { message: 'Profile updated successfully' };
     }
 
+    // ── Dashboard stats (no N+1) ─────────────────────────────────────────────
     async getDashboardStats(userId: number) {
-        const hospital = await this.hospitalRepo.findOne({ where: { userId } });
+        const hospital = await this.prisma.hospital.findUnique({ where: { userId } });
         if (!hospital) throw new NotFoundException('Hospital not found');
 
         const hospitalId = hospital.id;
 
-        const totalPatients = await this.entityManager.count(AccessPermission, {
-            where: { hospitalId, accessGranted: true }
-        });
+        const [totalPatients, totalRecords, recentUploads] = await this.prisma.$transaction([
+            this.prisma.accessPermission.count({
+                where: { hospitalId, status: 'APPROVED' },
+            }),
+            this.prisma.medicalRecord.count({ where: { hospitalId } }),
+            this.prisma.medicalRecord.findMany({
+                where: { hospitalId },
+                include: { patient: { select: { fullName: true } } },
+                orderBy: { createdAt: 'desc' },
+                take: 5,
+            }),
+        ]);
 
-        const totalRecords = await this.entityManager.count(MedicalRecord, {
-            where: { hospitalId }
-        });
-
-        const recentUploads = await this.entityManager.find(MedicalRecord, {
-            where: { hospitalId },
-            relations: ['patient', 'patient.user'],
-            order: { createdAt: 'DESC' },
-            take: 5
-        });
-
-        const activity = recentUploads.map(r => ({
+        const recentActivity = recentUploads.map((r) => ({
             id: r.id,
             type: 'UPLOAD',
             patientName: r.patient.fullName,
             date: r.createdAt,
-            diagnosis: r.diagnosis
+            diagnosis: r.diagnosis,
         }));
 
-        return {
-            totalPatients,
-            totalRecords,
-            recentActivity: activity
-        };
+        return { totalPatients, totalRecords, recentActivity };
     }
 
-    // ── Doctor Registration ──────────────────────────────────────────────────
-    async registerDoctor(hospitalUserId: number, dto: any) {
-        // 1. Find the hospital to get its true ID
-        const hospital = await this.hospitalRepo.findOne({ where: { userId: hospitalUserId } });
+    // ── Register patient (by hospital, auto temp password) ───────────────────
+    async registerPatient(
+        hospitalUserId: number,
+        dto: {
+            fullName: string;
+            phone: string;
+            aadhaarNumber: string;
+            dateOfBirth: string;
+            gender: string;
+        },
+    ) {
+        const hospital = await this.prisma.hospital.findUnique({ where: { userId: hospitalUserId } });
         if (!hospital) throw new NotFoundException('Hospital not found');
 
-        // 2. Check if phone already exists
-        const existing = await this.entityManager.findOne(User, { where: { phone: dto.phone } });
-        if (existing) throw new NotFoundException('Phone number is already registered');
-
-        // 3. Hash temporary password
-        const hashed = await bcrypt.hash(dto.password, 10);
-
-        // 4. Create User
-        const user = this.entityManager.create(User, {
-            phone: dto.phone,
-            aadhaar_number: dto.aadhaarNumber,
-            password: hashed,
-            role: UserRole.DOCTOR,
-        });
-
-        let savedUser;
-        try {
-            savedUser = await this.entityManager.save(User, user);
-        } catch (error: any) {
-            if (error.code === '23505' && error.detail && error.detail.includes('aadhaar_number')) {
-                throw new NotFoundException('Aadhaar number already registered');
-            }
-            throw error;
-        }
-
-        // 5. Create Doctor Profile
-        const doctor = this.entityManager.create(Doctor, {
-            userId: savedUser.id,
-            hospitalId: hospital.id,
-            fullName: dto.fullName,
-            specialization: dto.specialization,
-            department: dto.department,
-            role: dto.role, // JUNIOR_DOCTOR, etc.
-            licenseNumber: dto.licenseNumber,
-        });
-
-        await this.entityManager.save(Doctor, doctor);
-
-        return { message: 'Doctor registered successfully', doctorId: doctor.id };
-    }
-
-    // ── Patient Registration (by hospital admin) ──────────────────────────────
-    async registerPatient(hospitalUserId: number, dto: {
-        fullName: string;
-        phone: string;
-        aadhaarNumber: string;
-        dateOfBirth: string;
-        gender: string;
-    }) {
-        const hospital = await this.hospitalRepo.findOne({ where: { userId: hospitalUserId } });
-        if (!hospital) throw new NotFoundException('Hospital not found');
-
-        const existingPhone = await this.entityManager.findOne(User, { where: { phone: dto.phone } });
-        if (existingPhone) throw new ConflictException('Phone number is already registered');
-
-        // Auto-generate a readable temp password: first 4 letters of name + @ + last 4 of phone
         const namePart = dto.fullName.replace(/\s+/g, '').slice(0, 4).toLowerCase();
         const phonePart = dto.phone.slice(-4);
         const tempPassword = `${namePart}@${phonePart}`;
-        const hashed = await bcrypt.hash(tempPassword, 10);
+        const passwordHash = await bcrypt.hash(tempPassword, BCRYPT_ROUNDS);
 
-        const user = this.entityManager.create(User, {
-            phone: dto.phone,
-            aadhaar_number: dto.aadhaarNumber,
-            password: hashed,
-            role: UserRole.PATIENT,
-        });
-
-        let savedUser;
         try {
-            savedUser = await this.entityManager.save(User, user);
-        } catch (error: any) {
-            if (error.code === '23505' && error.detail && error.detail.includes('aadhaar_number')) {
-                throw new ConflictException('Aadhaar number already registered');
+            const result = await this.prisma.$transaction(async (tx) => {
+                const user = await tx.user.create({
+                    data: {
+                        phone: dto.phone,
+                        aadhaarNumber: dto.aadhaarNumber,
+                        passwordHash,
+                        role: 'PATIENT',
+                        patient: {
+                            create: {
+                                fullName: dto.fullName,
+                                dateOfBirth: dto.dateOfBirth,
+                                gender: dto.gender,
+                            },
+                        },
+                    },
+                    select: { id: true, patient: { select: { id: true } } },
+                });
+                return user;
+            });
+
+            return {
+                message: 'Patient registered successfully',
+                patientId: result.patient?.id,
+                userId: result.id,
+                fullName: dto.fullName,
+                phone: dto.phone,
+                tempPassword,
+            };
+        } catch (e: any) {
+            if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+                const target = (e.meta?.target as string[] | undefined)?.join(', ') ?? '';
+                if (target.includes('phone')) throw new ConflictException('Phone number is already registered');
+                if (target.includes('aadhaar')) throw new ConflictException('Aadhaar number is already registered');
             }
-            throw error;
+            throw e;
         }
+    }
 
-        const patient = this.entityManager.create(Patient, {
-            userId: savedUser.id,
-            fullName: dto.fullName,
-            dateOfBirth: dto.dateOfBirth,
-            gender: dto.gender,
+    // ── Hospital audit log (all uploads) ────────────────────────────────────
+    async getAuditLog(userId: number) {
+        const hospital = await this.prisma.hospital.findUnique({ where: { userId } });
+        if (!hospital) throw new NotFoundException('Hospital not found');
+
+        return this.prisma.medicalRecord.findMany({
+            where: { hospitalId: hospital.id },
+            include: { patient: { select: { fullName: true, id: true } } },
+            orderBy: { createdAt: 'desc' },
         });
-        const savedPatient = await this.entityManager.save(Patient, patient);
-
-        return {
-            message: 'Patient registered successfully',
-            patientId: savedPatient.id,
-            userId: savedUser.id,
-            fullName: dto.fullName,
-            phone: dto.phone,
-            tempPassword,
-        };
     }
 }

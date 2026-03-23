@@ -42,7 +42,7 @@ export default function RegisterDoctorPage() {
         try {
             await api.post("/auth/register/doctor", {
                 phone: form.phone,
-                aadhaar_number: form.aadhaar_number,
+                aadhaarNumber: form.aadhaar_number,
                 password: form.password,
                 hospitalId: Number(form.hospitalId),
             });

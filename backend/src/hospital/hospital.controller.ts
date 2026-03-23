@@ -7,7 +7,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('hospitals')
 export class HospitalController {
-    constructor(private readonly hospitalService: HospitalService) { }
+    constructor(private readonly hospitalService: HospitalService) {}
 
     @Get()
     findAll() {
@@ -22,7 +22,7 @@ export class HospitalController {
 
     @Patch('profile')
     @Roles('HOSPITAL')
-    updateProfile(@Request() req, @Body() body: { phone?: string }) {
+    updateProfile(@Request() req, @Body() body: { phone?: string; address?: string; city?: string; hospitalPhone?: string }) {
         return this.hospitalService.updateProfile(req.user.userId, body);
     }
 
@@ -32,17 +32,18 @@ export class HospitalController {
         return this.hospitalService.getDashboardStats(req.user.userId);
     }
 
-    @Post('doctors')
+    @Get('audit')
     @Roles('HOSPITAL')
-    registerDoctor(@Request() req, @Body() dto: any) {
-        return this.hospitalService.registerDoctor(req.user.userId, dto);
+    getAuditLog(@Request() req) {
+        return this.hospitalService.getAuditLog(req.user.userId);
     }
 
     @Post('patients')
     @Roles('HOSPITAL')
     registerPatient(
         @Request() req,
-        @Body() dto: {
+        @Body()
+        dto: {
             fullName: string;
             phone: string;
             aadhaarNumber: string;
