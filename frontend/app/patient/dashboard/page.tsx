@@ -221,7 +221,7 @@ export default function PatientDashboard() {
                                 </div>
                                 <span className="kpi-trend up">Granted</span>
                             </div>
-                            <div className="kpi-value">{permissions.filter((p: any) => p.accessGranted).length}</div>
+                            <div className="kpi-value">{permissions.filter((p: any) => p.status === 'APPROVED').length}</div>
                             <div className="kpi-label">Active Permissions</div>
                         </div>
 
@@ -232,13 +232,13 @@ export default function PatientDashboard() {
                                 </div>
                                 <span className="kpi-trend neutral">
                                     {records.length > 0
-                                        ? new Date(records[records.length - 1]?.visitDate).getFullYear()
+                                        ? new Date(records[records.length - 1]?.createdAt ?? records[records.length - 1]?.visitDate).getFullYear()
                                         : "—"}
                                 </span>
                             </div>
                             <div className="kpi-value" style={{ fontSize: "1.5rem" }}>
                                 {records.length > 0
-                                    ? new Date(records[records.length - 1]?.visitDate).toLocaleDateString("en-IN", { month: "short", day: "numeric" })
+                                    ? new Date(records[records.length - 1]?.createdAt ?? records[records.length - 1]?.visitDate).toLocaleDateString("en-IN", { month: "short", day: "numeric" })
                                     : "—"}
                             </div>
                             <div className="kpi-label">Last Visit</div>

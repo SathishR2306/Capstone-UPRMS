@@ -4,45 +4,26 @@ import {
     ForbiddenException,
     BadRequestException,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
+import { Prisma } from '@prisma/client';
 
-import { Doctor, DoctorStatus } from './entities/doctor.entity';
-import { DoctorActivityLog } from './entities/doctor-activity-log.entity';
-import { DoctorPatientAssignment } from './entities/doctor-patient-assignment.entity';
-import { User } from '../user/entities/user.entity';
-import { Patient } from '../patient/entities/patient.entity';
-import { Hospital } from '../hospital/entities/hospital.entity';
-import { AccessPermission } from '../access-permission/entities/access-permission.entity';
-import { MedicalRecord } from '../medical-record/entities/medical-record.entity';
+import { PrismaService } from '../prisma/prisma.service';
+
+const BCRYPT_ROUNDS = 12;
+const maskAadhaar = (n: string | null) => (n ? 'XXXX-XXXX-' + n.slice(-4) : 'N/A');
 
 @Injectable()
 export class DoctorService {
-    constructor(
-        @InjectRepository(Doctor)
-        private readonly doctorRepo: Repository<Doctor>,
-        @InjectRepository(DoctorActivityLog)
-        private readonly activityRepo: Repository<DoctorActivityLog>,
-        @InjectRepository(DoctorPatientAssignment)
-        private readonly assignmentRepo: Repository<DoctorPatientAssignment>,
-        @InjectRepository(User)
-        private readonly userRepo: Repository<User>,
-        @InjectRepository(Patient)
-        private readonly patientRepo: Repository<Patient>,
-        @InjectRepository(Hospital)
-        private readonly hospitalRepo: Repository<Hospital>,
-        @InjectRepository(AccessPermission)
-        private readonly permRepo: Repository<AccessPermission>,
-        @InjectRepository(MedicalRecord)
-        private readonly recordRepo: Repository<MedicalRecord>,
-    ) { }
+    constructor(private readonly prisma: PrismaService) {}
 
     // ── Profile ──────────────────────────────────────────────────────────────
     async getProfile(userId: number) {
-        const doctor = await this.doctorRepo.findOne({
+        const doctor = await this.prisma.doctor.findUnique({
             where: { userId },
-            relations: ['user', 'hospital'],
+            include: {
+                user: { select: { phone: true, aadhaarNumber: true } },
+                hospital: { select: { hospitalName: true, id: true } },
+            },
         });
         if (!doctor) throw new NotFoundException('Doctor profile not found');
 
@@ -58,9 +39,7 @@ export class DoctorService {
             workingHoursStart: doctor.workingHoursStart,
             workingHoursEnd: doctor.workingHoursEnd,
             phone: doctor.user?.phone,
-            maskedAadhaar: doctor.user?.aadhaar_number
-                ? 'XXXX-XXXX-' + doctor.user.aadhaar_number.slice(-4)
-                : 'N/A',
+            maskedAadhaar: maskAadhaar(doctor.user?.aadhaarNumber ?? null),
             hospitalId: doctor.hospitalId,
             hospitalName: doctor.hospital?.hospitalName,
         };
@@ -70,18 +49,18 @@ export class DoctorService {
         userId: number,
         dto: { fullName?: string; specialization?: string; licenseNumber?: string; phone?: string },
     ) {
-        const doctor = await this.doctorRepo.findOne({ where: { userId } });
-        if (!doctor) throw new NotFoundException('Doctor profile not found');
-
-        if (dto.fullName !== undefined) doctor.fullName = dto.fullName;
-        if (dto.specialization !== undefined) doctor.specialization = dto.specialization;
-        if (dto.licenseNumber !== undefined) doctor.licenseNumber = dto.licenseNumber;
-        await this.doctorRepo.save(doctor);
-
-        if (dto.phone) {
-            await this.userRepo.update({ id: userId }, { phone: dto.phone });
-        }
-
+        await this.prisma.$transaction(async (tx) => {
+            const updateData: Prisma.DoctorUpdateInput = {};
+            if (dto.fullName !== undefined) updateData.fullName = dto.fullName;
+            if (dto.specialization !== undefined) updateData.specialization = dto.specialization;
+            if (dto.licenseNumber !== undefined) updateData.licenseNumber = dto.licenseNumber;
+            if (Object.keys(updateData).length > 0) {
+                await tx.doctor.update({ where: { userId }, data: updateData });
+            }
+            if (dto.phone) {
+                await tx.user.update({ where: { id: userId }, data: { phone: dto.phone } });
+            }
+        });
         return { message: 'Profile updated successfully' };
     }
 
@@ -89,38 +68,35 @@ export class DoctorService {
         userId: number,
         dto: { currentPassword: string; newPassword: string },
     ) {
-        const user = await this.userRepo.findOne({ where: { id: userId } });
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
         if (!user) throw new NotFoundException('User not found');
 
-        const match = await bcrypt.compare(dto.currentPassword, user.password);
+        const match = await bcrypt.compare(dto.currentPassword, user.passwordHash);
         if (!match) throw new BadRequestException('Current password is incorrect');
 
-        user.password = await bcrypt.hash(dto.newPassword, 10);
-        await this.userRepo.save(user);
+        await this.prisma.user.update({
+            where: { id: userId },
+            data: { passwordHash: await bcrypt.hash(dto.newPassword, BCRYPT_ROUNDS) },
+        });
+
         return { message: 'Password changed successfully' };
     }
 
-    // ── License Status ────────────────────────────────────────────────────────
+    // ── License status ────────────────────────────────────────────────────────
     async getLicenseStatus(userId: number) {
-        const doctor = await this.doctorRepo.findOne({ where: { userId } });
+        const doctor = await this.prisma.doctor.findUnique({ where: { userId } });
         if (!doctor) throw new NotFoundException('Doctor profile not found');
-
-        return {
-            status: 'VALID',
-            daysRemaining: null,
-            licenseNumber: doctor.licenseNumber,
-        };
+        return { status: 'VALID', daysRemaining: null, licenseNumber: doctor.licenseNumber };
     }
 
     // ── Schedule ──────────────────────────────────────────────────────────────
     async getSchedule(userId: number) {
-        const doctor = await this.doctorRepo.findOne({ where: { userId } });
+        const doctor = await this.prisma.doctor.findUnique({ where: { userId } });
         if (!doctor) throw new NotFoundException('Doctor profile not found');
-
         return {
             workingHoursStart: doctor.workingHoursStart,
             workingHoursEnd: doctor.workingHoursEnd,
-            leaveDays: doctor.leaveDays || [],
+            leaveDays: (doctor.leaveDays as string[]) || [],
         };
     }
 
@@ -128,29 +104,30 @@ export class DoctorService {
         userId: number,
         dto: { workingHoursStart?: string; workingHoursEnd?: string; leaveDays?: string[] },
     ) {
-        const doctor = await this.doctorRepo.findOne({ where: { userId } });
-        if (!doctor) throw new NotFoundException('Doctor profile not found');
-
-        if (dto.workingHoursStart !== undefined) doctor.workingHoursStart = dto.workingHoursStart;
-        if (dto.workingHoursEnd !== undefined) doctor.workingHoursEnd = dto.workingHoursEnd;
-        if (dto.leaveDays !== undefined) doctor.leaveDays = dto.leaveDays;
-
-        await this.doctorRepo.save(doctor);
+        const updateData: Prisma.DoctorUpdateInput = {};
+        if (dto.workingHoursStart !== undefined) updateData.workingHoursStart = dto.workingHoursStart;
+        if (dto.workingHoursEnd !== undefined) updateData.workingHoursEnd = dto.workingHoursEnd;
+        if (dto.leaveDays !== undefined) updateData.leaveDays = dto.leaveDays;
+        await this.prisma.doctor.update({ where: { userId }, data: updateData });
         return { message: 'Schedule updated successfully' };
     }
 
     // ── Assigned Patients ─────────────────────────────────────────────────────
     async getAssignedPatients(userId: number) {
-        const doctor = await this.doctorRepo.findOne({ where: { userId } });
+        const doctor = await this.prisma.doctor.findUnique({ where: { userId } });
         if (!doctor) throw new NotFoundException('Doctor profile not found');
 
-        const assignments = await this.assignmentRepo.find({
+        const assignments = await this.prisma.doctorPatientAssignment.findMany({
             where: { doctorId: doctor.id },
-            relations: ['patient', 'patient.user'],
-            order: { assignedAt: 'DESC' },
+            include: {
+                patient: {
+                    include: { user: { select: { phone: true } } },
+                },
+            },
+            orderBy: { assignedAt: 'desc' },
         });
 
-        return assignments.map(a => ({
+        return assignments.map((a) => ({
             assignmentId: a.id,
             patientId: a.patientId,
             fullName: a.patient?.fullName,
@@ -162,94 +139,95 @@ export class DoctorService {
         }));
     }
 
-    // ── Patient Search ────────────────────────────────────────────────────────
+    // ── Patient Search (suspended doctors blocked) ────────────────────────────
     async searchPatient(query: string, doctorUserId: number) {
         if (!query || query.trim().length < 2) return [];
 
-        const doctor = await this.doctorRepo.findOne({ where: { userId: doctorUserId } });
+        const doctor = await this.prisma.doctor.findUnique({ where: { userId: doctorUserId } });
         if (!doctor) throw new NotFoundException('Doctor profile not found');
-
-        // Check if suspended
-        if (doctor.status === DoctorStatus.SUSPENDED) {
-            throw new ForbiddenException('Your account has been suspended. Please contact your hospital admin.');
+        if (doctor.status === 'SUSPENDED') {
+            throw new ForbiddenException('Your account has been suspended. Contact your hospital admin.');
         }
 
-        const patients = await this.patientRepo
-            .createQueryBuilder('patient')
-            .leftJoinAndSelect('patient.user', 'user')
-            .where('CAST(patient.id AS TEXT) = :q', { q: query.trim() })
-            .orWhere('user.phone ILIKE :qlike', { qlike: `%${query}%` })
-            .orWhere('user.aadhaar_number ILIKE :qlike', { qlike: `%${query}%` })
-            .orWhere('patient.fullName ILIKE :qlike', { qlike: `%${query}%` })
-            .take(20)
-            .getMany();
+        const patients = await this.prisma.patient.findMany({
+            where: {
+                OR: [
+                    { fullName: { contains: query, mode: 'insensitive' } },
+                    { user: { phone: { contains: query, mode: 'insensitive' } } },
+                    { user: { aadhaarNumber: { contains: query, mode: 'insensitive' } } },
+                ],
+            },
+            include: {
+                user: { select: { phone: true, aadhaarNumber: true } },
+                accessPermissions: {
+                    where: { hospitalId: doctor.hospitalId },
+                    select: { status: true, grantedAt: true },
+                    take: 1,
+                },
+            },
+            take: 20,
+        });
 
-        const result = await Promise.all(
-            patients.map(async (p) => {
-                const permission = await this.permRepo.findOne({
-                    where: { patientId: p.id, hospitalId: doctor.hospitalId },
-                });
-                return {
-                    id: p.id,
-                    fullName: p.fullName,
-                    phone: p.user?.phone,
-                    gender: p.gender,
-                    dob: p.dateOfBirth,
-                    maskedAadhaar: p.user?.aadhaar_number
-                        ? 'XXXX-XXXX-' + p.user.aadhaar_number.slice(-4)
-                        : 'N/A',
-                    accessStatus: permission ? permission.status : 'NOT_REQUESTED',
-                    accessGranted: permission ? permission.accessGranted : false,
-                    grantedAt: permission?.grantedAt ?? null,
-                };
-            }),
-        );
-
-        return result;
+        return patients.map((p) => {
+            const perm = p.accessPermissions[0] ?? null;
+            return {
+                id: p.id,
+                fullName: p.fullName,
+                phone: p.user?.phone,
+                gender: p.gender,
+                dob: p.dateOfBirth,
+                maskedAadhaar: maskAadhaar(p.user?.aadhaarNumber ?? null),
+                accessStatus: perm ? perm.status : 'NOT_REQUESTED',
+                accessGranted: perm?.status === 'APPROVED',
+                grantedAt: perm?.grantedAt ?? null,
+            };
+        });
     }
 
-    // ── Patient Records (consent-gated) ───────────────────────────────────────
+    // ── Patient Records (consent-gated + activity logged) ─────────────────────
     async getPatientRecords(patientId: number, doctorUserId: number, ip?: string) {
-        const doctor = await this.doctorRepo.findOne({ where: { userId: doctorUserId } });
+        const doctor = await this.prisma.doctor.findUnique({ where: { userId: doctorUserId } });
         if (!doctor) throw new NotFoundException('Doctor profile not found');
-
-        if (doctor.status === DoctorStatus.SUSPENDED) {
+        if (doctor.status === 'SUSPENDED') {
             throw new ForbiddenException('Your account has been suspended.');
         }
 
-        const permission = await this.permRepo.findOne({
-            where: { patientId, hospitalId: doctor.hospitalId, accessGranted: true },
+        const permission = await this.prisma.accessPermission.findUnique({
+            where: { patientId_hospitalId: { patientId, hospitalId: doctor.hospitalId } },
         });
-        if (!permission)
+        if (!permission || permission.status !== 'APPROVED') {
             throw new ForbiddenException('Patient has not granted access to your hospital');
+        }
 
-        // Detect out-of-hours
-        const outsideHours = this.isOutsideWorkHours(doctor.workingHoursStart, doctor.workingHoursEnd);
+        const outsideHours = this.isOutsideWorkHours(
+            doctor.workingHoursStart ?? undefined,
+            doctor.workingHoursEnd ?? undefined,
+        );
         await this.logActivity(doctor.id, patientId, 'VIEW_RECORDS', undefined, outsideHours, ip);
 
-        return this.recordRepo.find({
+        return this.prisma.medicalRecord.findMany({
             where: { patientId },
-            relations: ['hospital'],
-            order: { visitDate: 'ASC' },
+            include: { hospital: { select: { id: true, hospitalName: true } } },
+            orderBy: { visitDate: 'asc' },
         });
     }
 
     // ── Activity Log ─────────────────────────────────────────────────────────
     async getActivityLog(doctorUserId: number) {
-        const doctor = await this.doctorRepo.findOne({ where: { userId: doctorUserId } });
+        const doctor = await this.prisma.doctor.findUnique({ where: { userId: doctorUserId } });
         if (!doctor) throw new NotFoundException('Doctor profile not found');
 
-        return this.activityRepo.find({
+        return this.prisma.doctorActivityLog.findMany({
             where: { doctorId: doctor.id },
-            relations: ['patient'],
-            order: { timestamp: 'DESC' },
+            include: { patient: { select: { fullName: true, id: true } } },
+            orderBy: { createdAt: 'desc' },
             take: 100,
         });
     }
 
-    // ── Notifications (derived from real assignment + activity data) ──────────
+    // ── Notifications ─────────────────────────────────────────────────────────
     async getNotifications(doctorUserId: number) {
-        const doctor = await this.doctorRepo.findOne({ where: { userId: doctorUserId } });
+        const doctor = await this.prisma.doctor.findUnique({ where: { userId: doctorUserId } });
         if (!doctor) throw new NotFoundException('Doctor profile not found');
 
         const notifications: {
@@ -265,28 +243,35 @@ export class DoctorService {
             read: boolean;
         }[] = [];
 
-        // 1. All assigned patients → generate notifications
-        const assignments = await this.assignmentRepo.find({
-            where: { doctorId: doctor.id },
-            relations: ['patient'],
-            order: { assignedAt: 'DESC' },
-        });
+        const [assignments, recentLogs] = await this.prisma.$transaction([
+            this.prisma.doctorPatientAssignment.findMany({
+                where: { doctorId: doctor.id },
+                include: { patient: { select: { fullName: true, id: true } } },
+                orderBy: { assignedAt: 'desc' },
+            }),
+            this.prisma.doctorActivityLog.findMany({
+                where: { doctorId: doctor.id, isOutsideWorkHours: true },
+                include: { patient: { select: { fullName: true, id: true } } },
+                orderBy: { createdAt: 'desc' },
+                take: 5,
+            }),
+        ]);
 
         for (const a of assignments) {
             const name = a.patient?.fullName ?? `Patient #${a.patientId}`;
-            const isNew = ((Date.now() - new Date(a.assignedAt).getTime()) / 1000 / 60 / 60) < 24;
+            const isNew = (Date.now() - new Date(a.assignedAt).getTime()) / 1000 / 60 / 60 < 24;
 
             if (a.isEmergency) {
                 notifications.push({
                     id: `emergency-${a.id}`,
                     type: 'emergency',
                     title: '🚨 Emergency Patient Assigned',
-                    message: `${name} has been assigned to you as an EMERGENCY case by ${a.assignedBy ?? 'your hospital'}. Immediate attention required.`,
+                    message: `${name} has been assigned to you as an EMERGENCY case by ${a.assignedBy ?? 'your hospital'}.`,
                     time: a.assignedAt,
                     patientName: name,
                     patientId: a.patientId,
                     isEmergency: true,
-                    assignedBy: a.assignedBy,
+                    assignedBy: a.assignedBy ?? undefined,
                     read: false,
                 });
             } else if (isNew) {
@@ -294,12 +279,12 @@ export class DoctorService {
                     id: `new-assignment-${a.id}`,
                     type: 'assignment',
                     title: '👤 New Patient Assigned',
-                    message: `${name} has been newly assigned to your care by ${a.assignedBy ?? 'your hospital'}. Please review their medical history.`,
+                    message: `${name} has been newly assigned to your care by ${a.assignedBy ?? 'your hospital'}.`,
                     time: a.assignedAt,
                     patientName: name,
                     patientId: a.patientId,
                     isEmergency: false,
-                    assignedBy: a.assignedBy,
+                    assignedBy: a.assignedBy ?? undefined,
                     read: false,
                 });
             } else {
@@ -312,19 +297,11 @@ export class DoctorService {
                     patientName: name,
                     patientId: a.patientId,
                     isEmergency: false,
-                    assignedBy: a.assignedBy,
+                    assignedBy: a.assignedBy ?? undefined,
                     read: true,
                 });
             }
         }
-
-        // 2. Recent out-of-hours access activity
-        const recentLogs = await this.activityRepo.find({
-            where: { doctorId: doctor.id, isOutsideWorkHours: true },
-            relations: ['patient'],
-            order: { timestamp: 'DESC' },
-            take: 5,
-        });
 
         for (const log of recentLogs) {
             const pName = log.patient?.fullName ?? `Patient #${log.patientId}`;
@@ -332,15 +309,14 @@ export class DoctorService {
                 id: `activity-${log.id}`,
                 type: 'activity',
                 title: '⏰ Out-of-Hours Record Access',
-                message: `You accessed records for ${pName} outside your scheduled working hours. This has been logged in the audit trail.`,
-                time: log.timestamp,
+                message: `You accessed records for ${pName} outside your working hours. This is logged.`,
+                time: log.createdAt,
                 patientName: pName,
-                patientId: log.patientId,
+                patientId: log.patientId ?? undefined,
                 read: true,
             });
         }
 
-        // Sort: unread first, then newest first
         notifications.sort((a, b) => {
             if (!a.read && b.read) return -1;
             if (a.read && !b.read) return 1;
@@ -350,6 +326,7 @@ export class DoctorService {
         return notifications.slice(0, 30);
     }
 
+    // ── Log activity ──────────────────────────────────────────────────────────
     async logActivity(
         doctorId: number,
         patientId: number | null,
@@ -358,21 +335,25 @@ export class DoctorService {
         isOutsideWorkHours?: boolean,
         ipAddress?: string,
     ) {
-        const log = this.activityRepo.create({
-            doctorId,
-            patientId: patientId ?? undefined,
-            action,
-            detail,
-            isOutsideWorkHours: isOutsideWorkHours ?? false,
-            ipAddress,
+        await this.prisma.doctorActivityLog.create({
+            data: {
+                doctorId,
+                patientId: patientId ?? undefined,
+                action: action as any,
+                detail,
+                isOutsideWorkHours: isOutsideWorkHours ?? false,
+                ipAddress,
+            },
         });
-        await this.activityRepo.save(log);
     }
 
     async logDownload(doctorUserId: number, patientId: number, fileName: string) {
-        const doctor = await this.doctorRepo.findOne({ where: { userId: doctorUserId } });
+        const doctor = await this.prisma.doctor.findUnique({ where: { userId: doctorUserId } });
         if (!doctor) return;
-        const outsideHours = this.isOutsideWorkHours(doctor.workingHoursStart, doctor.workingHoursEnd);
+        const outsideHours = this.isOutsideWorkHours(
+            doctor.workingHoursStart ?? undefined,
+            doctor.workingHoursEnd ?? undefined,
+        );
         await this.logActivity(doctor.id, patientId, 'DOWNLOAD_REPORT', fileName, outsideHours);
         return { message: 'Download logged' };
     }

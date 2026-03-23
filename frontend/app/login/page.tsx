@@ -4,14 +4,13 @@ import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import api from "../../utils/api";
-import { 
-    LuHospital, 
-    LuTriangleAlert, 
-    LuArrowRight, 
-    LuArrowLeft, 
-    LuUser, 
-    LuStethoscope, 
-    LuShieldCheck 
+import {
+    LuHospital,
+    LuTriangleAlert,
+    LuArrowRight,
+    LuArrowLeft,
+    LuUser,
+    LuStethoscope,
 } from "react-icons/lu";
 
 type LoginRole = "PATIENT" | "HOSPITAL" | "DOCTOR";
@@ -19,14 +18,11 @@ type LoginRole = "PATIENT" | "HOSPITAL" | "DOCTOR";
 export default function LoginPage() {
     const router = useRouter();
     const [role, setRole] = useState<LoginRole>("PATIENT");
-    
-    // Form fields
+
+    // Backend POST /auth/login only accepts { phone, password } — same for all roles
     const [phone, setPhone] = useState("");
-    const [hospitalName, setHospitalName] = useState("");
-    const [registrationNumber, setRegistrationNumber] = useState("");
-    const [docId, setDocId] = useState("");
     const [password, setPassword] = useState("");
-    
+
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
 
@@ -35,34 +31,27 @@ export default function LoginPage() {
         setError("");
         setLoading(true);
 
-        const payload: any = { password };
-        if (role === "PATIENT") {
-            payload.phone = phone;
-        } else if (role === "HOSPITAL") {
-            payload.hospitalName = hospitalName;
-            payload.registrationNumber = registrationNumber;
-        } else if (role === "DOCTOR") {
-            payload.hospitalName = hospitalName;
-            payload.docId = Number(docId);
-        }
+        // Universal payload — role is determined server-side from the JWT
+        const payload = { phone: phone.trim(), password };
 
         try {
             const { data } = await api.post("/auth/login", payload);
-            // Store token and role
+
+            // Store credentials
             localStorage.setItem("token", data.access_token);
             localStorage.setItem("role", data.role);
 
-            // Role-based redirect
+            // Route to the correct portal matching Next.js file routes
             if (data.role === "HOSPITAL") {
-                localStorage.setItem("hospitalSlug", data.slug);
-                router.push(`/${data.slug}/dashboard`);
+                if (data.slug) localStorage.setItem("hospitalSlug", data.slug);
+                router.push("/hospital/dashboard");
+            } else if (data.role === "DOCTOR") {
+                router.push("/doctor/dashboard");
+            } else if (data.role === "PATIENT") {
+                router.push("/patient/dashboard");
+            } else {
+                router.push("/");
             }
-            else if (data.role === "DOCTOR") {
-                localStorage.setItem("hospitalSlug", data.slug);
-                router.push(`/${data.slug}/doctor/${data.doctorId}/dashboard`);
-            }
-            else if (data.role === "PATIENT") router.push("/patient/dashboard");
-            else router.push("/");
         } catch (err: unknown) {
             const msg =
                 (err as { response?: { data?: { message?: string } } })?.response?.data
@@ -73,7 +62,7 @@ export default function LoginPage() {
         }
     }
 
-    const roles: { id: LoginRole; label: string; icon: any; color: string }[] = [
+    const roles: { id: LoginRole; label: string; icon: React.ElementType; color: string }[] = [
         { id: "PATIENT", label: "Patient", icon: LuUser, color: "#60a5fa" },
         { id: "HOSPITAL", label: "Hospital", icon: LuHospital, color: "#a78bfa" },
         { id: "DOCTOR", label: "Doctor", icon: LuStethoscope, color: "#34d399" },
@@ -112,13 +101,11 @@ export default function LoginPage() {
                     transition: "color 0.2s",
                     zIndex: 10,
                 }}
-                onMouseEnter={(e) => ((e.target as HTMLElement).style.color = "#f9fafb")}
-                onMouseLeave={(e) => ((e.target as HTMLElement).style.color = "var(--text-secondary)")}
             >
                 <LuArrowLeft size={16} /> Back to Home
             </Link>
 
-            {/* Card */}
+            {/* Login Card */}
             <div
                 className="glass-strong animate-fade-up"
                 style={{
@@ -135,49 +122,56 @@ export default function LoginPage() {
                         Sign in to UPRMS
                     </h1>
                     <p style={{ color: "var(--text-secondary)", fontSize: "0.95rem" }}>
-                        Enter your credentials to access your portal
+                        Use your registered phone number and password
                     </p>
                 </div>
 
-                {/* Role Switcher */}
-                <div 
-                    style={{ 
-                        display: "grid", 
-                        gridTemplateColumns: "repeat(3, 1fr)", 
-                        gap: 12, 
+                {/* Role Selector — visual UX hint only, login is always phone + password */}
+                <div
+                    style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(3, 1fr)",
+                        gap: 12,
                         marginBottom: 32,
                         background: "rgba(255,255,255,0.03)",
                         padding: 6,
                         borderRadius: 14,
-                        border: "1px solid var(--border)"
+                        border: "1px solid var(--border)",
                     }}
                 >
-                    {roles.map((r) => (
-                        <button
-                            key={r.id}
-                            onClick={() => { setRole(r.id); setError(""); }}
-                            style={{
-                                display: "flex",
-                                flexDirection: "column",
-                                alignItems: "center",
-                                gap: 6,
-                                padding: "12px 8px",
-                                borderRadius: 10,
-                                border: "none",
-                                background: role === r.id ? r.color : "transparent",
-                                color: role === r.id ? "#0f172a" : "var(--text-secondary)",
-                                cursor: "pointer",
-                                transition: "all 0.2s ease",
-                                fontWeight: 700,
-                                fontSize: "0.75rem",
-                                textTransform: "uppercase",
-                                letterSpacing: "0.02em"
-                            }}
-                        >
-                            <r.icon size={20} />
-                            {r.label}
-                        </button>
-                    ))}
+                    {roles.map((r) => {
+                        const Icon = r.icon;
+                        return (
+                            <button
+                                key={r.id}
+                                type="button"
+                                onClick={() => {
+                                    setRole(r.id);
+                                    setError("");
+                                }}
+                                style={{
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    alignItems: "center",
+                                    gap: 6,
+                                    padding: "12px 8px",
+                                    borderRadius: 10,
+                                    border: "none",
+                                    background: role === r.id ? r.color : "transparent",
+                                    color: role === r.id ? "#0f172a" : "var(--text-secondary)",
+                                    cursor: "pointer",
+                                    transition: "all 0.2s ease",
+                                    fontWeight: 700,
+                                    fontSize: "0.75rem",
+                                    textTransform: "uppercase",
+                                    letterSpacing: "0.02em",
+                                }}
+                            >
+                                <Icon size={20} />
+                                {r.label}
+                            </button>
+                        );
+                    })}
                 </div>
 
                 {/* Error banner */}
@@ -201,62 +195,18 @@ export default function LoginPage() {
                 )}
 
                 <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-                    
-                    {role === "PATIENT" && (
-                        <div className="animate-fade-in">
-                            <label className="input-label">PHONE NUMBER</label>
-                            <input
-                                type="tel"
-                                className="input-field"
-                                placeholder="Enter registered phone"
-                                value={phone}
-                                onChange={(e) => setPhone(e.target.value)}
-                                required
-                            />
-                        </div>
-                    )}
-
-                    {(role === "HOSPITAL" || role === "DOCTOR") && (
-                        <div className="animate-fade-in">
-                            <label className="input-label">HOSPITAL NAME</label>
-                            <input
-                                type="text"
-                                className="input-field"
-                                placeholder="Exact hospital name"
-                                value={hospitalName}
-                                onChange={(e) => setHospitalName(e.target.value)}
-                                required
-                            />
-                        </div>
-                    )}
-
-                    {role === "HOSPITAL" && (
-                        <div className="animate-fade-in">
-                            <label className="input-label">HOSPITAL REGISTRATION NUMBER</label>
-                            <input
-                                type="text"
-                                className="input-field"
-                                placeholder="Enter reg number"
-                                value={registrationNumber}
-                                onChange={(e) => setRegistrationNumber(e.target.value)}
-                                required
-                            />
-                        </div>
-                    )}
-
-                    {role === "DOCTOR" && (
-                        <div className="animate-fade-in">
-                            <label className="input-label">DOCTOR ID</label>
-                            <input
-                                type="number"
-                                className="input-field"
-                                placeholder="Your numeric ID"
-                                value={docId}
-                                onChange={(e) => setDocId(e.target.value)}
-                                required
-                            />
-                        </div>
-                    )}
+                    {/* Phone — universal identifier for all roles */}
+                    <div>
+                        <label className="input-label">PHONE NUMBER</label>
+                        <input
+                            type="tel"
+                            className="input-field"
+                            placeholder="Enter your registered phone number"
+                            value={phone}
+                            onChange={(e) => setPhone(e.target.value)}
+                            required
+                        />
+                    </div>
 
                     <div>
                         <label className="input-label">PASSWORD</label>
@@ -295,7 +245,7 @@ export default function LoginPage() {
                     </Link>
                 </p>
             </div>
-            
+
             <style jsx>{`
                 .input-label {
                     display: block;
@@ -304,13 +254,6 @@ export default function LoginPage() {
                     color: var(--text-secondary);
                     margin-bottom: 8px;
                     letter-spacing: 0.05em;
-                }
-                @keyframes fadeIn {
-                    from { opacity: 0; transform: translateY(4px); }
-                    to { opacity: 1; transform: translateY(0); }
-                }
-                .animate-fade-in {
-                    animation: fadeIn 0.3s ease forwards;
                 }
             `}</style>
         </div>

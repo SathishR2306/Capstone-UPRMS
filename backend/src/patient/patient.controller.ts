@@ -7,7 +7,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('patient')
 export class PatientController {
-    constructor(private readonly patientService: PatientService) { }
+    constructor(private readonly patientService: PatientService) {}
 
     @Get('profile')
     @Roles('PATIENT')
@@ -17,24 +17,23 @@ export class PatientController {
 
     @Patch('profile')
     @Roles('PATIENT')
-    updateProfile(@Request() req, @Body() body: { phone?: string, bloodGroup?: string, emergencyContactName?: string, emergencyContactPhone?: string, emergencyContactRelation?: string }) {
+    updateProfile(
+        @Request() req,
+        @Body() body: { phone?: string; bloodGroup?: string; emergencyContactName?: string; emergencyContactPhone?: string; emergencyContactRelation?: string },
+    ) {
         return this.patientService.updateProfile(req.user.userId, body);
     }
 
     @Get('search')
     @Roles('HOSPITAL')
-    searchPatients(
-        @Request() req, 
-        @Query('q') query: string,
-        @Query('linked') linked?: string
-    ) {
-        return this.patientService.searchPatients(query, req.user.userId, linked === 'true');
+    searchPatients(@Request() req, @Query('q') query: string) {
+        return this.patientService.searchPatients(query, req.user.userId);
     }
 
     @Get('find')
     @Roles('HOSPITAL')
-    findByRegNumber(@Request() req, @Query('q') query: string) {
-        return this.patientService.findByRegNumber(query, req.user.userId);
+    findByAadhaar(@Request() req, @Query('q') query: string) {
+        return this.patientService.findByAadhaar(query, req.user.userId);
     }
 
     @Get('insurance')

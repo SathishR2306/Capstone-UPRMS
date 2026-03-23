@@ -1,183 +1,213 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository, InjectEntityManager } from '@nestjs/typeorm';
-import { Repository, EntityManager } from 'typeorm';
-import { Patient } from './entities/patient.entity';
-import { PatientInsurance } from './entities/patient-insurance.entity';
-import { User } from '../user/entities/user.entity';
-import { AccessPermission } from '../access-permission/entities/access-permission.entity';
+import { PrismaService } from '../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
+
+// Helper
+const maskAadhaar = (n: string | null) => (n ? 'XXXX-XXXX-' + n.slice(-4) : 'N/A');
 
 @Injectable()
 export class PatientService {
-    constructor(
-        @InjectRepository(Patient) private patientRepo: Repository<Patient>,
-        @InjectRepository(PatientInsurance) private insuranceRepo: Repository<PatientInsurance>,
-        @InjectRepository(User) private userRepo: Repository<User>,
-        @InjectEntityManager() private readonly entityManager: EntityManager,
-    ) { }
+    constructor(private readonly prisma: PrismaService) {}
 
+    // ── Profile ──────────────────────────────────────────────────────────────
     async getProfile(userId: number) {
-        const user = await this.userRepo.findOne({ where: { id: userId } });
-        if (!user) throw new NotFoundException('User not found');
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+            include: {
+                patient: true,
+            },
+        });
+        if (!user || !user.patient) throw new NotFoundException('Patient profile not found');
 
-        const patient = await this.patientRepo.findOne({ where: { userId } });
-        if (!patient) throw new NotFoundException('Patient profile not found');
-
-        // Mask Aadhaar: show only last 4 digits
-        const maskedAadhaar = user.aadhaar_number
-            ? 'XXXX-XXXX-' + user.aadhaar_number.slice(-4)
-            : 'N/A';
-
+        const p = user.patient;
         return {
-            id: patient.id,
+            id: p.id,
             userId: user.id,
-            fullName: patient.fullName,
+            fullName: p.fullName,
             phone: user.phone,
-            maskedAadhaar,
-            dateOfBirth: patient.dateOfBirth,
-            gender: patient.gender,
-            bloodGroup: patient.bloodGroup,
-            emergencyContactName: patient.emergencyContactName,
-            emergencyContactPhone: patient.emergencyContactPhone,
-            emergencyContactRelation: patient.emergencyContactRelation,
+            maskedAadhaar: maskAadhaar(user.aadhaarNumber),
+            dateOfBirth: p.dateOfBirth,
+            gender: p.gender,
+            bloodGroup: p.bloodGroup,
+            emergencyContactName: p.emergencyContactName,
+            emergencyContactPhone: p.emergencyContactPhone,
+            emergencyContactRelation: p.emergencyContactRelation,
             role: user.role,
         };
     }
 
-    async updateProfile(userId: number, updateDto: { phone?: string, bloodGroup?: string, emergencyContactName?: string, emergencyContactPhone?: string, emergencyContactRelation?: string }) {
-        if (updateDto.phone) {
-            await this.userRepo.update({ id: userId }, { phone: updateDto.phone });
-        }
-        
-        const patient = await this.patientRepo.findOne({ where: { userId } });
-        if (patient) {
-            if (updateDto.bloodGroup !== undefined) patient.bloodGroup = updateDto.bloodGroup;
-            if (updateDto.emergencyContactName !== undefined) patient.emergencyContactName = updateDto.emergencyContactName;
-            if (updateDto.emergencyContactPhone !== undefined) patient.emergencyContactPhone = updateDto.emergencyContactPhone;
-            if (updateDto.emergencyContactRelation !== undefined) patient.emergencyContactRelation = updateDto.emergencyContactRelation;
-            await this.patientRepo.save(patient);
-        }
-
+    // ── Update profile ───────────────────────────────────────────────────────
+    async updateProfile(
+        userId: number,
+        dto: {
+            phone?: string;
+            bloodGroup?: string;
+            emergencyContactName?: string;
+            emergencyContactPhone?: string;
+            emergencyContactRelation?: string;
+        },
+    ) {
+        await this.prisma.$transaction(async (tx) => {
+            if (dto.phone) {
+                await tx.user.update({ where: { id: userId }, data: { phone: dto.phone } });
+            }
+            const patientData: Prisma.PatientUpdateInput = {};
+            if (dto.bloodGroup !== undefined) patientData.bloodGroup = dto.bloodGroup;
+            if (dto.emergencyContactName !== undefined) patientData.emergencyContactName = dto.emergencyContactName;
+            if (dto.emergencyContactPhone !== undefined) patientData.emergencyContactPhone = dto.emergencyContactPhone;
+            if (dto.emergencyContactRelation !== undefined)
+                patientData.emergencyContactRelation = dto.emergencyContactRelation;
+            if (Object.keys(patientData).length > 0) {
+                await tx.patient.update({ where: { userId }, data: patientData });
+            }
+        });
         return { message: 'Profile updated successfully' };
     }
 
-    async searchPatients(query: string, hospitalUserId: number, onlyLinked: boolean = false) {
-        // If not searching for a specific patient but just want the list (e.g. for onlyLinked), 
-        // we might allow empty query if onlyLinked is true.
-        if (!onlyLinked && (!query || query.trim().length < 2)) return [];
+    // ── Search patients (HOSPITAL only) — single query with access status ────
+    async searchPatients(query: string, hospitalUserId: number) {
+        if (!query || query.trim().length < 2) return [];
 
-        const hospital = await this.entityManager.findOne('Hospital', { where: { userId: hospitalUserId } }) as any;
+        const hospital = await this.prisma.hospital.findUnique({ where: { userId: hospitalUserId } });
         if (!hospital) throw new NotFoundException('Hospital profile not found');
 
-        const hospitalId = hospital.id;
+        const patients = await this.prisma.patient.findMany({
+            where: {
+                OR: [
+                    { fullName: { contains: query, mode: 'insensitive' } },
+                    { user: { phone: { contains: query, mode: 'insensitive' } } },
+                    { user: { aadhaarNumber: { contains: query, mode: 'insensitive' } } },
+                ],
+            },
+            include: {
+                user: { select: { phone: true, aadhaarNumber: true } },
+                accessPermissions: {
+                    where: { hospitalId: hospital.id },
+                    select: { status: true, grantedAt: true },
+                    take: 1,
+                },
+            },
+            take: 20,
+        });
 
-        const qb = this.patientRepo.createQueryBuilder('patient')
-            .leftJoinAndSelect('patient.user', 'user');
-
-        if (onlyLinked) {
-            qb.innerJoin(AccessPermission, 'perm', 'perm.patientId = patient.id')
-              .where('perm.hospitalId = :hospitalId', { hospitalId })
-              .andWhere('perm.accessGranted = :granted', { granted: true });
-            
-            if (query && query.trim().length >= 2) {
-                qb.andWhere('(patient.fullName ILIKE :query OR user.phone ILIKE :query OR user.aadhaar_number ILIKE :query)', { query: `%${query}%` });
-            }
-        } else {
-            qb.where('patient.fullName ILIKE :query', { query: `%${query}%` })
-              .orWhere('user.phone ILIKE :query', { query: `%${query}%` })
-              .orWhere('user.aadhaar_number ILIKE :query', { query: `%${query}%` });
-        }
-
-        const patients = await qb.take(20).getMany();
-
-        const result = await Promise.all(patients.map(async (p) => {
-            const permission = await this.entityManager.findOne(AccessPermission, {
-                where: { patientId: p.id, hospitalId }
-            });
-
+        return patients.map((p) => {
+            const perm = p.accessPermissions[0] ?? null;
             return {
                 id: p.id,
                 fullName: p.fullName,
                 phone: p.user.phone,
-                maskedAadhaar: p.user.aadhaar_number ? 'XXXX-XXXX-' + p.user.aadhaar_number.slice(-4) : 'N/A',
+                maskedAadhaar: maskAadhaar(p.user.aadhaarNumber),
                 gender: p.gender,
                 dob: p.dateOfBirth,
-                accessStatus: permission ? permission.status : 'NOT_REQUESTED',
-                accessGranted: permission ? permission.accessGranted : false,
+                accessStatus: perm ? perm.status : 'NOT_REQUESTED',
+                accessGranted: perm?.status === 'APPROVED',
+                grantedAt: perm?.grantedAt ?? null,
             };
-        }));
-
-        return result;
+        });
     }
 
-    async findByRegNumber(query: string, hospitalUserId: number) {
-        if (!query || query.trim().length === 0) return [];
+    // ── Find by Aadhaar exact match (HOSPITAL only) ──────────────────────────
+    async findByAadhaar(aadhaarNumber: string, hospitalUserId: number) {
+        if (!aadhaarNumber || aadhaarNumber.trim().length === 0) return [];
 
-        const hospital = await this.entityManager.findOne('Hospital', { where: { userId: hospitalUserId } }) as any;
+        const hospital = await this.prisma.hospital.findUnique({ where: { userId: hospitalUserId } });
         if (!hospital) throw new NotFoundException('Hospital profile not found');
-        const hospitalId = hospital.id;
 
-        // Search by Aadhaar number
-        const patients = await this.patientRepo.createQueryBuilder('patient')
-            .leftJoinAndSelect('patient.user', 'user')
-            .where('user.aadhaar_number = :query', { query: query.trim() })
-            .getMany();
+        const user = await this.prisma.user.findUnique({
+            where: { aadhaarNumber: aadhaarNumber.trim() },
+            include: {
+                patient: {
+                    include: {
+                        accessPermissions: {
+                            where: { hospitalId: hospital.id },
+                            select: { status: true, grantedAt: true },
+                            take: 1,
+                        },
+                    },
+                },
+            },
+        });
 
-        const result = await Promise.all(patients.map(async (p) => {
-            const permission = await this.entityManager.findOne(AccessPermission, {
-                where: { patientId: p.id, hospitalId }
-            });
+        if (!user?.patient) return [];
 
-            return {
+        const p = user.patient;
+        const perm = p.accessPermissions[0] ?? null;
+
+        return [
+            {
                 id: p.id,
-                userId: p.user.id,
+                userId: user.id,
                 fullName: p.fullName,
-                phone: p.user.phone,
-                // Mask Aadhaar for search result security
-                maskedAadhaar: p.user.aadhaar_number ? 'XXXX-XXXX-' + p.user.aadhaar_number.slice(-4) : 'N/A',
+                phone: user.phone,
+                maskedAadhaar: maskAadhaar(user.aadhaarNumber),
                 gender: p.gender,
                 dob: p.dateOfBirth,
-                accessStatus: permission ? permission.status : 'NOT_REQUESTED',
-                accessGranted: permission ? permission.accessGranted : false,
-            };
-        }));
-
-        return result;
+                accessStatus: perm ? perm.status : 'NOT_REQUESTED',
+                accessGranted: perm?.status === 'APPROVED',
+            },
+        ];
     }
 
+    // ── Insurance ────────────────────────────────────────────────────────────
     async getInsurance(userId: number) {
-        const patient = await this.patientRepo.findOne({ where: { userId } });
+        const patient = await this.prisma.patient.findUnique({ where: { userId } });
         if (!patient) throw new NotFoundException('Patient profile not found');
-
-        const insurance = await this.insuranceRepo.find({ where: { patientId: patient.id } });
-        return insurance;
+        return this.prisma.patientInsurance.findMany({ where: { patientId: patient.id } });
     }
 
-    async addOrUpdateInsurance(userId: number, dto: { id?: number, providerName: string, policyNumber: string, groupNumber: string, validUntil?: string, isActive?: boolean }) {
-        const patient = await this.patientRepo.findOne({ where: { userId } });
+    async addOrUpdateInsurance(
+        userId: number,
+        dto: {
+            id?: number;
+            providerName: string;
+            policyNumber: string;
+            groupNumber?: string;
+            validUntil?: string;
+            isActive?: boolean;
+        },
+    ) {
+        const patient = await this.prisma.patient.findUnique({ where: { userId } });
         if (!patient) throw new NotFoundException('Patient profile not found');
 
         if (dto.id) {
-            const existing = await this.insuranceRepo.findOne({ where: { id: dto.id, patientId: patient.id } });
-            if (!existing) throw new NotFoundException('Insurance record not found');
-            Object.assign(existing, dto);
-            return this.insuranceRepo.save(existing);
-        } else {
-            const newInsurance = this.insuranceRepo.create({
-                ...dto,
-                patientId: patient.id
+            const existing = await this.prisma.patientInsurance.findFirst({
+                where: { id: dto.id, patientId: patient.id },
             });
-            return this.insuranceRepo.save(newInsurance);
+            if (!existing) throw new NotFoundException('Insurance record not found');
+            return this.prisma.patientInsurance.update({
+                where: { id: dto.id },
+                data: {
+                    providerName: dto.providerName,
+                    policyNumber: dto.policyNumber,
+                    groupNumber: dto.groupNumber,
+                    validUntil: dto.validUntil,
+                    isActive: dto.isActive,
+                },
+            });
         }
+
+        return this.prisma.patientInsurance.create({
+            data: {
+                patientId: patient.id,
+                providerName: dto.providerName,
+                policyNumber: dto.policyNumber,
+                groupNumber: dto.groupNumber,
+                validUntil: dto.validUntil,
+                isActive: dto.isActive ?? true,
+            },
+        });
     }
 
     async deleteInsurance(userId: number, insuranceId: number) {
-        const patient = await this.patientRepo.findOne({ where: { userId } });
+        const patient = await this.prisma.patient.findUnique({ where: { userId } });
         if (!patient) throw new NotFoundException('Patient profile not found');
 
-        const existing = await this.insuranceRepo.findOne({ where: { id: insuranceId, patientId: patient.id } });
+        const existing = await this.prisma.patientInsurance.findFirst({
+            where: { id: insuranceId, patientId: patient.id },
+        });
         if (!existing) throw new NotFoundException('Insurance record not found');
 
-        await this.insuranceRepo.remove(existing);
+        await this.prisma.patientInsurance.delete({ where: { id: insuranceId } });
         return { message: 'Insurance deleted successfully' };
     }
 }

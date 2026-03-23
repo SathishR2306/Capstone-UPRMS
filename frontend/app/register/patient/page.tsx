@@ -42,7 +42,7 @@ export default function RegisterPatientPage() {
         try {
             await api.post("/auth/register/patient", {
                 phone: form.phone,
-                aadhaar_number: randomAadhaar,
+                aadhaarNumber: randomAadhaar,
                 password: form.password,
                 fullName: form.fullName,
                 dateOfBirth: form.dateOfBirth,

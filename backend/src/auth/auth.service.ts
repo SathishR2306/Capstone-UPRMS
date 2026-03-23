@@ -1,33 +1,29 @@
 import {
     Injectable,
-    BadRequestException,
+    ConflictException,
     UnauthorizedException,
+    NotFoundException,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, ILike } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import { Prisma } from '@prisma/client';
 
-import { User, UserRole } from '../user/entities/user.entity';
-import { Patient } from '../patient/entities/patient.entity';
-import { Hospital } from '../hospital/entities/hospital.entity';
-import { Doctor } from '../doctor/entities/doctor.entity';
-
+import { PrismaService } from '../prisma/prisma.service';
 import { RegisterPatientDto } from './dto/register-patient.dto';
 import { RegisterHospitalDto } from './dto/register-hospital.dto';
 import { RegisterDoctorDto } from './dto/register-doctor.dto';
 import { LoginDto } from './dto/login.dto';
 
+const BCRYPT_ROUNDS = 12;
+
 @Injectable()
 export class AuthService {
     constructor(
-        @InjectRepository(User) private userRepo: Repository<User>,
-        @InjectRepository(Patient) private patientRepo: Repository<Patient>,
-        @InjectRepository(Hospital) private hospitalRepo: Repository<Hospital>,
-        @InjectRepository(Doctor) private doctorRepo: Repository<Doctor>,
-        private jwtService: JwtService,
-    ) { }
+        private readonly prisma: PrismaService,
+        private readonly jwtService: JwtService,
+    ) {}
 
+    // ── Slug helper ──────────────────────────────────────────────────────────
     private slugify(name: string): string {
         return name
             .toLowerCase()
@@ -39,201 +35,171 @@ export class AuthService {
 
     // ── Patient Registration ─────────────────────────────────────────────────
     async registerPatient(dto: RegisterPatientDto) {
-        const existing = await this.userRepo.findOne({ where: { phone: dto.phone } });
-        if (existing) throw new BadRequestException('Phone already registered');
+        const passwordHash = await bcrypt.hash(dto.password, BCRYPT_ROUNDS);
 
-        const hashed = await bcrypt.hash(dto.password, 10);
-
-        const user = this.userRepo.create({
-            phone: dto.phone,
-            aadhaar_number: dto.aadhaar_number,
-            password: hashed,
-            role: UserRole.PATIENT,
-        });
-        let savedUser;
         try {
-            savedUser = await this.userRepo.save(user);
-        } catch (error: any) {
-            if (error.code === '23505' && error.detail && error.detail.includes('aadhaar_number')) {
-                throw new BadRequestException('Aadhaar number already registered');
-            }
-            throw error;
+            const result = await this.prisma.$transaction(async (tx) => {
+                const user = await tx.user.create({
+                    data: {
+                        phone: dto.phone,
+                        aadhaarNumber: dto.aadhaarNumber,
+                        passwordHash,
+                        role: 'PATIENT',
+                        patient: {
+                            create: {
+                                fullName: dto.fullName,
+                                dateOfBirth: dto.dateOfBirth,
+                                gender: dto.gender,
+                            },
+                        },
+                    },
+                    select: { id: true, patient: { select: { id: true } } },
+                });
+                return user;
+            });
+
+            return { message: 'Patient registered successfully', userId: result.id };
+        } catch (e: any) {
+            this.handlePrismaConflict(e, 'phone', 'aadhaarNumber');
         }
-
-        const patient = this.patientRepo.create({
-            userId: savedUser.id,
-            fullName: dto.fullName,
-            dateOfBirth: dto.dateOfBirth,
-            gender: dto.gender,
-        });
-        await this.patientRepo.save(patient);
-
-        return { message: 'Patient registered successfully', userId: savedUser.id };
     }
 
     // ── Hospital Registration ─────────────────────────────────────────────────
     async registerHospital(dto: RegisterHospitalDto) {
-        const existing = await this.userRepo.findOne({ where: { phone: dto.phone } });
-        if (existing) throw new BadRequestException('Phone already registered');
+        const passwordHash = await bcrypt.hash(dto.password, BCRYPT_ROUNDS);
 
-        const hashed = await bcrypt.hash(dto.password, 10);
-
-        const user = this.userRepo.create({
-            phone: dto.phone,
-            aadhaar_number: dto.aadhaar_number,
-            password: hashed,
-            role: UserRole.HOSPITAL,
-        });
-        let savedUser;
-        try {
-            savedUser = await this.userRepo.save(user);
-        } catch (error: any) {
-            if (error.code === '23505' && error.detail && error.detail.includes('aadhaar_number')) {
-                throw new BadRequestException('Aadhaar number already registered');
-            }
-            throw error;
-        }
-
+        // Build slug with collision safety
         let slug = this.slugify(dto.hospitalName);
-        const slugExists = await this.hospitalRepo.findOne({ where: { slug } });
-        if (slugExists) { slug = `${slug}-${Math.floor(1000 + Math.random() * 9000)}`; }
+        const slugExists = await this.prisma.hospital.findUnique({ where: { slug } });
+        if (slugExists) {
+            slug = `${slug}-${Math.floor(1000 + Math.random() * 9000)}`;
+        }
 
-        const hospital = this.hospitalRepo.create({
-            userId: savedUser.id,
-            hospitalName: dto.hospitalName,
-            registrationNumber: dto.registrationNumber,
-            slug,
-        });
-        await this.hospitalRepo.save(hospital);
-
-        return { message: 'Hospital registered successfully', userId: savedUser.id, slug };
-    }
-
-    // ── Doctor Registration (created by hospital admin) ───────────────────────
-    async registerDoctor(dto: RegisterDoctorDto) {
-        const existing = await this.userRepo.findOne({ where: { phone: dto.phone } });
-        if (existing) throw new BadRequestException('Phone already registered');
-
-        const hashed = await bcrypt.hash(dto.password, 10);
-
-        const user = this.userRepo.create({
-            phone: dto.phone,
-            aadhaar_number: dto.aadhaar_number,
-            password: hashed,
-            role: UserRole.DOCTOR,
-        });
-        let savedUser;
         try {
-            savedUser = await this.userRepo.save(user);
-        } catch (error: any) {
-            if (error.code === '23505' && error.detail && error.detail.includes('aadhaar_number')) {
-                throw new BadRequestException('Aadhaar number already registered');
-            }
-            throw error;
+            const result = await this.prisma.$transaction(async (tx) => {
+                const user = await tx.user.create({
+                    data: {
+                        phone: dto.phone,
+                        aadhaarNumber: dto.aadhaarNumber,
+                        passwordHash,
+                        role: 'HOSPITAL',
+                        hospital: {
+                            create: {
+                                hospitalName: dto.hospitalName,
+                                registrationNumber: dto.registrationNumber,
+                                slug,
+                            },
+                        },
+                    },
+                    select: { id: true, hospital: { select: { id: true, slug: true } } },
+                });
+                return user;
+            });
+
+            return {
+                message: 'Hospital registered successfully',
+                userId: result.id,
+                slug: result.hospital?.slug,
+            };
+        } catch (e: any) {
+            this.handlePrismaConflict(e, 'phone', 'aadhaarNumber', 'registrationNumber', 'slug');
         }
-
-        const doctor = this.doctorRepo.create({
-            userId: savedUser.id,
-            hospitalId: dto.hospitalId,
-        });
-        await this.doctorRepo.save(doctor);
-
-        return { message: 'Doctor registered successfully', userId: savedUser.id };
     }
 
-    // ── Login ────────────────────────────────────────────────────────────────
+    // ── Doctor Registration (by hospital admin) ───────────────────────────────
+    async registerDoctor(dto: RegisterDoctorDto) {
+        const passwordHash = await bcrypt.hash(dto.password, BCRYPT_ROUNDS);
+
+        try {
+            const result = await this.prisma.$transaction(async (tx) => {
+                const user = await tx.user.create({
+                    data: {
+                        phone: dto.phone,
+                        aadhaarNumber: dto.aadhaarNumber,
+                        passwordHash,
+                        role: 'DOCTOR',
+                        doctor: {
+                            create: {
+                                hospitalId: dto.hospitalId,
+                                fullName: dto.fullName,
+                                specialization: dto.specialization,
+                                department: dto.department,
+                                licenseNumber: dto.licenseNumber,
+                                role: (dto.role as any) ?? 'JUNIOR_DOCTOR',
+                                status: 'ACTIVE',
+                            },
+                        },
+                    },
+                    select: { id: true, doctor: { select: { id: true } } },
+                });
+                return user;
+            });
+
+            return {
+                message: 'Doctor registered successfully',
+                userId: result.id,
+                doctorId: result.doctor?.id,
+            };
+        } catch (e: any) {
+            this.handlePrismaConflict(e, 'phone', 'aadhaarNumber');
+        }
+    }
+
+    // ── Unified Login ────────────────────────────────────────────────────────
     async login(dto: LoginDto) {
-        let user: User | null = null;
+        const user = await this.prisma.user.findUnique({
+            where: { phone: dto.phone.trim() },
+            include: {
+                patient: { select: { id: true } },
+                hospital: { select: { id: true, slug: true } },
+                doctor: { select: { id: true } },
+            },
+        });
 
-        if (dto.phone) {
-            // Patient login
-            user = await this.userRepo.findOne({ where: { phone: dto.phone.trim() } });
-        } else if (dto.hospitalName && dto.registrationNumber) {
-            // Hospital login
-            console.log(`Attempting hospital login for: ${dto.hospitalName}, Reg: ${dto.registrationNumber}`);
-            const h = await this.hospitalRepo.findOne({
-                where: { 
-                    hospitalName: ILike(dto.hospitalName.trim()), 
-                    registrationNumber: ILike(dto.registrationNumber.trim()) 
-                },
-                relations: ['user']
-            });
+        if (!user) throw new UnauthorizedException('Invalid credentials');
 
-            if (h) {
-                console.log(`Hospital found: ${h.hospitalName}, User ID: ${h.userId}`);
-                user = h.user;
-            } else {
-                console.log(`Hospital not found for Name: ${dto.hospitalName}, Reg: ${dto.registrationNumber}`);
-                // Try finding by Reg number only to see if name is the issue
-                const hByReg = await this.hospitalRepo.findOne({
-                    where: { registrationNumber: ILike(dto.registrationNumber.trim()) }
-                });
+        const match = await bcrypt.compare(dto.password, user.passwordHash);
+        if (!match) throw new UnauthorizedException('Invalid credentials');
 
-                if (hByReg) {
-                    console.log(`FOUND hospital by Reg Number but name mismatched: DB Name: "${hByReg.hospitalName}" vs Input: "${dto.hospitalName}"`);
-                }
-            }
-        } else if (dto.hospitalName && dto.docId) {
-            // Doctor login
-            const h = await this.hospitalRepo.findOne({ 
-                where: { hospitalName: ILike(dto.hospitalName.trim()) } 
-            });
-            if (h) {
-                const d = await this.doctorRepo.findOne({
-                    where: { id: dto.docId, hospitalId: h.id },
-                    relations: ['user']
-                });
-                if (d) user = d.user;
-            }
-        }
+        // Rich JWT payload — downstream services never need an extra DB lookup
+        const payload: Record<string, unknown> = {
+            sub: user.id,
+            role: user.role,
+            patientId: user.patient?.id ?? undefined,
+            hospitalId: user.hospital?.id ?? undefined,
+            doctorId: user.doctor?.id ?? undefined,
+        };
 
-        if (!user) {
-            console.log('Login failed: User not found in database with provided credentials.');
-            throw new UnauthorizedException('Invalid credentials');
-        }
-
-        const match = await bcrypt.compare(dto.password, user.password);
-        if (!match) {
-            console.log(`Password mismatch for user: ${user.phone || user.id}`);
-            throw new UnauthorizedException('Invalid credentials');
-        }
-
-
-        const payload = { sub: user.id, phone: user.phone, role: user.role };
         const token = await this.jwtService.signAsync(payload);
 
-        let hospitalSlug: string | undefined;
-        let doctorId: number | undefined;
+        return {
+            access_token: token,
+            role: user.role,
+            slug: user.hospital?.slug,
+            doctorId: user.doctor?.id,
+        };
+    }
 
-        if (user.role === UserRole.HOSPITAL) {
-            const h = await this.hospitalRepo.findOne({ where: { userId: user.id } });
-            if (h) {
-                if (!h.slug) {
-                    h.slug = this.slugify(h.hospitalName);
-                    // Check for collision
-                    const exists = await this.hospitalRepo.findOne({ where: { slug: h.slug } });
-                    if (exists && exists.id !== h.id) h.slug = `${h.slug}-${h.id}`;
-                    await this.hospitalRepo.save(h);
+    // ── Helper: surface field-specific Prisma unique constraint errors ────────
+    private handlePrismaConflict(e: any, ...fields: string[]): never {
+        if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+            const target: string = (e.meta?.target as string[] | undefined)?.join(', ') ?? '';
+            if (fields.some((f) => target.includes(f))) {
+                if (target.includes('phone')) {
+                    throw new ConflictException('Phone number is already registered');
                 }
-                hospitalSlug = h.slug;
-            }
-        } else if (user.role === UserRole.DOCTOR) {
-            const d = await this.doctorRepo.findOne({ where: { userId: user.id }, relations: ['hospital'] });
-            if (d) {
-                doctorId = d.id;
-                if (d.hospital) {
-                    if (!d.hospital.slug) {
-                        d.hospital.slug = this.slugify(d.hospital.hospitalName);
-                        // Check for collision
-                        const exists = await this.hospitalRepo.findOne({ where: { slug: d.hospital.slug } });
-                        if (exists && exists.id !== d.hospital.id) d.hospital.slug = `${d.hospital.slug}-${d.hospital.id}`;
-                        await this.hospitalRepo.save(d.hospital);
-                    }
-                    hospitalSlug = d.hospital.slug;
+                if (target.includes('aadhaar') || target.includes('aadhaarNumber')) {
+                    throw new ConflictException('Aadhaar number is already registered');
+                }
+                if (target.includes('registrationNumber')) {
+                    throw new ConflictException('Hospital registration number is already registered');
+                }
+                if (target.includes('slug')) {
+                    throw new ConflictException('Hospital slug conflict — try again');
                 }
             }
+            throw new ConflictException('A record with these details already exists');
         }
-
-        return { access_token: token, role: user.role, slug: hospitalSlug, doctorId };
+        throw e;
     }
 }

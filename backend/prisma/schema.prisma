@@ -1,0 +1,216 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  PATIENT
+  HOSPITAL
+  DOCTOR
+}
+
+enum DoctorRole {
+  SENIOR_CONSULTANT
+  JUNIOR_DOCTOR
+  RESIDENT
+  READ_ONLY
+}
+
+enum DoctorStatus {
+  ACTIVE
+  SUSPENDED
+  PENDING
+}
+
+enum AccessStatus {
+  PENDING
+  APPROVED
+  REVOKED
+  REJECTED
+}
+
+enum ActivityAction {
+  VIEW_RECORDS
+  DOWNLOAD_REPORT
+  VIEW_AI_SUMMARY
+  LOGIN
+  SEARCH_PATIENT
+  OTHER
+}
+
+// ─── Models ───────────────────────────────────────────────────────────────────
+
+model User {
+  id           Int      @id @default(autoincrement())
+  phone        String   @unique
+  aadhaarNumber String  @unique @map("aadhaar_number")
+  passwordHash String   @map("password_hash")
+  role         UserRole @default(PATIENT)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  patient  Patient?
+  hospital Hospital?
+  doctor   Doctor?
+
+  @@map("users")
+}
+
+model Patient {
+  id                      Int      @id @default(autoincrement())
+  userId                  Int      @unique @map("user_id")
+  fullName                String   @map("full_name")
+  dateOfBirth             String   @map("date_of_birth") // stored as ISO string
+  gender                  String
+  bloodGroup              String?  @map("blood_group")
+  emergencyContactName    String?  @map("emergency_contact_name")
+  emergencyContactPhone   String?  @map("emergency_contact_phone")
+  emergencyContactRelation String? @map("emergency_contact_relation")
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @updatedAt @map("updated_at")
+
+  user              User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  medicalRecords    MedicalRecord[]
+  accessPermissions AccessPermission[]
+  insurance         PatientInsurance[]
+  assignments       DoctorPatientAssignment[]
+  activityLogs      DoctorActivityLog[]
+
+  @@map("patients")
+}
+
+model Hospital {
+  id                 Int      @id @default(autoincrement())
+  userId             Int      @unique @map("user_id")
+  hospitalName       String   @map("hospital_name")
+  registrationNumber String   @unique @map("registration_number")
+  slug               String   @unique
+  address            String?
+  city               String?
+  phone              String?
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  doctors           Doctor[]
+  medicalRecords    MedicalRecord[]
+  accessPermissions AccessPermission[]
+
+  @@map("hospitals")
+}
+
+model Doctor {
+  id                Int          @id @default(autoincrement())
+  userId            Int          @unique @map("user_id")
+  hospitalId        Int          @map("hospital_id")
+  fullName          String?      @map("full_name")
+  specialization    String?
+  licenseNumber     String?      @map("license_number")
+  department        String?
+  role              DoctorRole   @default(JUNIOR_DOCTOR)
+  status            DoctorStatus @default(ACTIVE)
+  workingHoursStart String?      @map("working_hours_start")
+  workingHoursEnd   String?      @map("working_hours_end")
+  leaveDays         Json         @default("[]") @map("leave_days")
+  createdAt         DateTime     @default(now()) @map("created_at")
+  updatedAt         DateTime     @updatedAt @map("updated_at")
+
+  user         User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  hospital     Hospital                  @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  assignments  DoctorPatientAssignment[]
+  activityLogs DoctorActivityLog[]
+
+  @@map("doctors")
+}
+
+model MedicalRecord {
+  id             Int      @id @default(autoincrement())
+  patientId      Int      @map("patient_id")
+  hospitalId     Int      @map("hospital_id")
+  diagnosis      String
+  prescription   String?
+  visitDate      String   @map("visit_date")
+  reportFileUrl  String?  @map("report_file_url")
+  createdAt      DateTime @default(now()) @map("created_at")
+  // Immutable by design — no updatedAt
+
+  patient  Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  hospital Hospital @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+
+  @@index([patientId])
+  @@map("medical_records")
+}
+
+model AccessPermission {
+  id          Int          @id @default(autoincrement())
+  patientId   Int          @map("patient_id")
+  hospitalId  Int          @map("hospital_id")
+  status      AccessStatus @default(PENDING)
+  grantedAt   DateTime?    @map("granted_at")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  patient  Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  hospital Hospital @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+
+  @@unique([patientId, hospitalId])
+  @@index([hospitalId])
+  @@map("access_permissions")
+}
+
+model PatientInsurance {
+  id           Int      @id @default(autoincrement())
+  patientId    Int      @map("patient_id")
+  providerName String   @map("provider_name")
+  policyNumber String   @map("policy_number")
+  groupNumber  String?  @map("group_number")
+  validUntil   String?  @map("valid_until")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@map("patient_insurance")
+}
+
+model DoctorPatientAssignment {
+  id          Int      @id @default(autoincrement())
+  doctorId    Int      @map("doctor_id")
+  patientId   Int      @unique @map("patient_id") // one active doctor per patient enforced at DB
+  isEmergency Boolean  @default(false) @map("is_emergency")
+  assignedBy  String?  @map("assigned_by")
+  assignedAt  DateTime @default(now()) @map("assigned_at")
+
+  doctor  Doctor  @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId])
+  @@map("doctor_patient_assignments")
+}
+
+model DoctorActivityLog {
+  id                 Int            @id @default(autoincrement())
+  doctorId           Int            @map("doctor_id")
+  patientId          Int?           @map("patient_id")
+  action             ActivityAction
+  detail             String?
+  isOutsideWorkHours Boolean        @default(false) @map("is_outside_work_hours")
+  ipAddress          String?        @map("ip_address")
+  createdAt          DateTime       @default(now()) @map("created_at")
+
+  doctor  Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  patient Patient? @relation(fields: [patientId], references: [id], onDelete: SetNull)
+
+  @@index([doctorId])
+  @@map("doctor_activity_logs")
+}
